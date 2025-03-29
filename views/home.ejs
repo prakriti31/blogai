@@ -48,7 +48,7 @@
                 <div class="popup-content">
                     <span class="close-popup">&times;</span>
                     <h2>Notifications</h2>
-                    <ul>
+                    <ul id="notification-list">
                         <% if (notifications.length > 0) { %>
                             <% notifications.forEach(notification => { %>
                                 <li>
@@ -56,9 +56,12 @@
                                 </li>
                             <% }) %>
                         <% } else { %>
-                            <li>No new notifications</li>
+                            <li id="no-notifications">No new notifications</li>
                         <% } %>
                     </ul>
+                    <% if (notifications.length > 0) { %>
+                        <button id="clear-notifications">Clear All</button>
+                    <% } %>
                 </div>
             </div>
 

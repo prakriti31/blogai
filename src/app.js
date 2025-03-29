@@ -72,6 +72,14 @@ app.get("/home", async (req, res) => {
   }
 });
 
+app.post("/clear-notifications", (req, res) => {
+  // Assuming `req.session.notifications` stores notifications
+  req.session.notifications = [];
+
+  // Respond with success
+  res.json({ success: true });
+});
+
 app.get("/", (req, res) => {
   res.render("login");
 });
