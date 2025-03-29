@@ -9,6 +9,7 @@
     <script src="https://kit.fontawesome.com/eabac940d1.js" crossorigin="anonymous"></script>
     </head>
 <body>
+    <script src="/js/script.js"></script>
     <nav>
         <div class="logo"><a href="/home">myBlog</a></div>
         <div class="search" >
@@ -37,25 +38,49 @@
     </nav>
     <main>
         <div class="pop-posts-container">
-            <div class="notifications-container">
-                <h2>Notifications</h2>
-                <ul>
-                    <% if (locals.notifications?.length) { %>
-                        <% locals.notifications.forEach(notification => { %>
-                            <li>
-                                <a href="/posts/<%= notification.postId %>">
-                                    <%= notification.message %>
-                                </a>
-                                <span class="notification-date">
-            <%= new Date(notification.date).toLocaleDateString() %>
-          </span>
-                            </li>
-                        <% }) %>
-                    <% } else { %>
-                        <li>No new notifications</li>
-                    <% } %>
-                </ul>
+            <li class="notifications-icon">
+                <i class="fa-solid fa-bell" id="notification-bell"></i>
+                <% if (notifications.length > 0) { %>
+                    <span class="notification-badge"><%= notifications.length %></span>
+                <% } %>
+            </li>
+            <div id="notification-popup" class="hidden">
+                <div class="popup-content">
+                    <span class="close-popup">&times;</span>
+                    <h2>Notifications</h2>
+                    <ul>
+                        <% if (notifications.length > 0) { %>
+                            <% notifications.forEach(notification => { %>
+                                <li>
+                                    <a href="/posts/<%= notification.postId %>"><%= notification.message %></a>
+                                </li>
+                            <% }) %>
+                        <% } else { %>
+                            <li>No new notifications</li>
+                        <% } %>
+                    </ul>
+                </div>
             </div>
+
+<!--            <div class="notifications-container">-->
+<!--                <h2>Notifications</h2>-->
+<!--                <ul>-->
+<!--                    <% if (locals.notifications?.length) { %>-->
+<!--                        <% locals.notifications.forEach(notification => { %>-->
+<!--                            <li>-->
+<!--                                <a href="/posts/<%= notification.postId %>">-->
+<!--                                    <%= notification.message %>-->
+<!--                                </a>-->
+<!--                                <span class="notification-date">-->
+<!--            <%= new Date(notification.date).toLocaleDateString() %>-->
+<!--          </span>-->
+<!--                            </li>-->
+<!--                        <% }) %>-->
+<!--                    <% } else { %>-->
+<!--                        <li>No new notifications</li>-->
+<!--                    <% } %>-->
+<!--                </ul>-->
+<!--            </div>-->
             <h1>Popular Articles <a href="/compose"><button><i class="fa-sharp fa-solid fa-pen"></i>&nbsp; Compose</button></a> </h1>
             
             
