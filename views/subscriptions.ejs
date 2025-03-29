@@ -1,0 +1,35 @@
+<!-- subscriptions.ejs -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Manage Subscriptions</title>
+</head>
+<body>
+<h1>Manage Your Topic Subscriptions</h1>
+<!-- Form to subscribe to a new topic -->
+<form action="/subscriptions/subscribe" method="post">
+    <input type="text" name="topic" placeholder="Enter topic to subscribe" required>
+    <button type="submit">Subscribe</button>
+</form>
+
+<h2>Your Subscriptions</h2>
+<ul>
+    <% if (subscriptions.length) { %>
+        <% subscriptions.forEach(function(topic){ %>
+            <li>
+                <%= topic %>
+                <form action="/subscriptions/unsubscribe" method="post" style="display:inline;">
+                    <input type="hidden" name="topic" value="<%= topic %>">
+                    <button type="submit">Unsubscribe</button>
+                </form>
+            </li>
+        <% }); %>
+    <% } else { %>
+        <li>You have no subscriptions yet.</li>
+    <% } %>
+</ul>
+
+<a href="/home">Back to Home</a>
+</body>
+</html>
