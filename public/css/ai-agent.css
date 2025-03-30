@@ -1,20 +1,39 @@
-/* public/css/ai-agent.css */
-body {
-    font-family: Arial, sans-serif;
-    background: #f9f9f9;
+:root {
+    --primary: #FFC107;
+    --secondary: #004D40;
+    --background: #FAF3E0;
+    --text-color: #333333;
+    --white: #ffffff;
+    --black: #2f3542;
+    --gray-light: #ced6e0;
+    --font-main: 'Poppins', sans-serif;
+}
+
+* {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
+    font-family: var(--font-main);
+}
+
+body {
+    background: var(--background);
+    color: var(--text-color);
 }
 
 nav {
-    background: #333;
-    padding: 10px;
+    background: var(--secondary);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 nav .logo a {
-    color: #fff;
+    color: var(--white);
     text-decoration: none;
-    font-size: 1.5em;
+    font-size: 1.8em;
+    font-weight: bold;
 }
 
 nav .nav-items ul {
@@ -24,36 +43,75 @@ nav .nav-items ul {
 }
 
 nav .nav-items ul li a {
-    color: #fff;
+    color: var(--white);
     text-decoration: none;
+    font-size: 1rem;
+    padding: 8px 16px;
+    border-radius: 20px;
+    transition: background 0.3s ease, border 0.3s ease;
 }
 
-main {
+nav .nav-items ul li a:hover {
+    background-color: var(--white);
+    color: var(--secondary);
+    border: 2px solid var(--secondary);
+}
+
+.ai-container {
+    max-width: 800px;
+    margin: 40px auto;
     padding: 20px;
+    background: var(--white);
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
-main h1 {
+.ai-container h1 {
     margin-bottom: 10px;
+    color: var(--black);
+    text-align: center;
+}
+
+.ai-container p {
+    text-align: center;
+    margin-bottom: 20px;
 }
 
 #agent-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
     margin-bottom: 20px;
 }
 
 #agentQuery {
     width: 100%;
     padding: 10px;
-    font-size: 1em;
+    font-size: 1rem;
+    border: 1px solid var(--gray-light);
+    border-radius: 4px;
+    resize: vertical;
 }
 
-button {
+#agent-form button {
     padding: 10px 15px;
-    font-size: 1em;
+    font-size: 1rem;
+    background-color: var(--primary);
+    color: var(--white);
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
+    align-self: flex-end;
+    transition: background 0.3s ease;
+}
+
+#agent-form button:hover {
+    background-color: var(--secondary);
 }
 
 #agentResponse {
-    background: #eaeaea;
+    background: var(--gray-light);
     padding: 15px;
     border-radius: 5px;
+    min-height: 100px;
 }

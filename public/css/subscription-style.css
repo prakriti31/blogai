@@ -1,0 +1,123 @@
+:root {
+    --primary: #FFC107;
+    --secondary: #004D40;
+    --background: #FAF3E0;
+    --text-color: #333333;
+    --white: #ffffff;
+    --black: #2f3542;
+    --gray-light: #ced6e0;
+    --font-main: 'Poppins', sans-serif;
+}
+
+body {
+    background: var(--background);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    margin: 0;
+    padding: 0;
+}
+
+.subscriptions-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    background: var(--white);
+    border-radius: 8px;
+    box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+}
+
+.subscriptions-container h1,
+.subscriptions-container h2 {
+    text-align: center;
+    color: var(--black);
+    margin-bottom: 20px;
+}
+
+.subscription-form-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.subscription-form {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 500px;
+}
+
+.subscription-form input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--gray-light);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.subscription-form button {
+    padding: 10px 20px;
+    background-color: var(--primary);
+    color: var(--white);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.subscription-form button:hover {
+    background-color: var(--secondary);
+}
+
+.subscriptions-list {
+    list-style: none;
+    padding: 0;
+}
+
+.subscription-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border: 1px solid var(--gray-light);
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.subscription-topic {
+    font-size: 1rem;
+}
+
+.unsubscribe-form button {
+    padding: 5px 10px;
+    background-color: var(--secondary);
+    color: var(--white);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.unsubscribe-form button:hover {
+    background-color: var(--primary);
+}
+
+.no-subscriptions {
+    text-align: center;
+    font-style: italic;
+    color: var(--gray-light);
+}
+
+.back-home-btn {
+    display: inline-block;
+    margin-top: 30px;
+    padding: 10px 20px;
+    background-color: var(--primary);
+    color: var(--white);
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.back-home-btn:hover {
+    background-color: var(--secondary);
+}
