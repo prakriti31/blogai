@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Agent Assistant</title>
+    <link rel="stylesheet" href="/css/ai-agent.css" />
+    <script src="https://kit.fontawesome.com/eabac940d1.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<nav>
+    <div class="logo"><a href="/home">myBlog</a></div>
+    <div class="nav-items">
+        <ul>
+            <li><a href="/home">Home</a></li>
+            <li><a href="/profile/<%= user %>">My Profile</a></li>
+            <li><a href="/logout">Logout</a></li>
+        </ul>
+    </div>
+</nav>
+<main>
+    <h1>AI Agent Assistant</h1>
+    <p>Ask the agent for recommendations based on current weather, local events, and your location.</p>
+    <form id="agent-form">
+        <textarea id="agentQuery" name="agentQuery" placeholder="Type your question here..." rows="4"></textarea>
+        <button type="submit"><i class="fa-solid fa-paper-plane"></i> Ask Agent</button>
+    </form>
+    <div id="agentResponse">
+        <!-- The response from the server will be displayed here -->
+    </div>
+</main>
+<script src="/js/agent.js"></script>
+</body>
+</html>

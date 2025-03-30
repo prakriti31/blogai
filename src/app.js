@@ -1,4 +1,5 @@
 const express = require("express");
+const axios = require('axios');
 // Elastic search client
 // const esClient = require("./elasticsearchClient");
 const mongoose = require("mongoose");
@@ -647,17 +648,6 @@ app.post("/search",async(req,res)=>{
 
 })
 
-app.get("/:custom", (req, res) => {
-  res.render("notfound")
-});
-app.get("/:custom/:custom2",(req,res)=>{
-  res.render("notfound")
-})
-
-app.listen(process.env.PORT || 3000, () => {
-  console.log("server started at port 3000");
-});
-
 // // Route to generate an AI reply for a post (you can adjust the URL as needed)
 // app.post("/generate-reply", async (req, res) => {
 //   // Check if user is logged in
@@ -736,4 +726,76 @@ app.post("/generate-reply", async (req, res) => {
     console.error("Error generating AI reply:", err);
     res.status(500).json({ error: "Error generating reply" });
   }
+});
+
+
+// AI Agent GET route: renders the AI Agent page
+app.get("/ai-agent", (req, res) => {
+  if (!req.session.useremail) return res.redirect("/");
+  res.render("ai-agent", { user: req.session.username });
+});
+
+// AI Agent POST route: processes the user's query and returns recommendations
+app.post("/ai-agent", async (req, res) => {
+  const userQuery = req.body.query;
+
+  try {
+    // Example steps to generate a recommendation:
+    // 1. Get user's location (you might use req.ip or a client-side geolocation API)
+    //    For demonstration, we use a placeholder:
+    const locationData = await axios.get('https://ipapi.co/json/');
+    const userLocation = locationData.data.city || 'your area';
+
+    // 2. Get current weather conditions (example using Open-Meteo or OpenWeatherMap)
+    //    Replace the URL and parameters with actual API calls and include your API key if needed.
+    const weatherResponse = await axios.get('https://api.open-meteo.com/v1/forecast', {
+      params: {
+        latitude: locationData.data.latitude,
+        longitude: locationData.data.longitude,
+        current_weather: true
+      }
+    });
+    const weather = weatherResponse.data.current_weather;
+
+    // 3. Get real-time event information (e.g., sports events) using a service like SerpAPI.
+    //    Here we use a placeholder response.
+    const events = "Local sports event: City Marathon at 3 PM";
+
+    // 4. Ask OpenAI for an activity recommendation based on the above data.
+    //    Make sure to have your API key in an environment variable or configuration.
+    //    This is a placeholder call—you need to integrate the actual OpenAI API.
+    const openAiResponse = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: "You are an assistant that recommends activities based on weather, local events, and user location." },
+            { role: "user", content: `I am in ${userLocation}. The current weather is ${weather.temperature}°C with ${weather.weathercode}. I also heard about this event: ${events}. What activities would you recommend?` }
+          ]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`  // Replace with your actual OpenAI API key
+          }
+        }
+    );
+
+    const recommendation = openAiResponse.data.choices[0].message.content;
+    res.json({ recommendation });
+  } catch (error) {
+    console.error("Error in AI Agent:", error.message);
+    res.status(500).json({ recommendation: "Sorry, we couldn't fetch recommendations at this time." });
+  }
+});
+
+app.get("/:custom", (req, res) => {
+  res.render("notfound")
+});
+app.get("/:custom/:custom2",(req,res)=>{
+  res.render("notfound")
+})
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log("server started at port 3000");
 });

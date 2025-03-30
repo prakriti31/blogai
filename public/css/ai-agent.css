@@ -1,0 +1,59 @@
+/* public/css/ai-agent.css */
+body {
+    font-family: Arial, sans-serif;
+    background: #f9f9f9;
+    margin: 0;
+    padding: 0;
+}
+
+nav {
+    background: #333;
+    padding: 10px;
+}
+
+nav .logo a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 1.5em;
+}
+
+nav .nav-items ul {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+}
+
+nav .nav-items ul li a {
+    color: #fff;
+    text-decoration: none;
+}
+
+main {
+    padding: 20px;
+}
+
+main h1 {
+    margin-bottom: 10px;
+}
+
+#agent-form {
+    margin-bottom: 20px;
+}
+
+#agentQuery {
+    width: 100%;
+    padding: 10px;
+    font-size: 1em;
+}
+
+button {
+    padding: 10px 15px;
+    font-size: 1em;
+    cursor: pointer;
+}
+
+#agentResponse {
+    background: #eaeaea;
+    padding: 15px;
+    border-radius: 5px;
+}
