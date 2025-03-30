@@ -106,7 +106,8 @@
       <!-- Comment Form -->
       <% if (user) { %>
         <form action="/posts/<%= post._id %>/comment" method="POST">
-          <textarea name="commentText" placeholder="Write your comment..." rows="3" required></textarea>
+          <!-- Added id to capture user's typed comment -->
+          <textarea name="commentText" id="aiPromptInput" placeholder="Write your comment..." rows="3" required></textarea>
           <button type="submit" class="comment-submit">Post Comment</button>
         </form>
       <% } else { %>
@@ -142,6 +143,16 @@
         <% } %>
       </div>
     </div>
+
+    <!-- AI-generated Reply Section -->
+    <% if (user) { %>
+      <div class="ai-reply-section" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;">
+        <label for="aiToggle">
+          <input type="checkbox" id="aiToggle" /> Enable AI-generated reply (uses your comment text)
+        </label>
+        <button id="generateReplyBtn" disabled style="margin-left: 10px;">Generate Reply</button>
+      </div>
+    <% } %>
   </div>
 
   <!-- Related Posts Section -->
@@ -163,7 +174,7 @@
   </div>
 </main>
 
-<!-- Like Button Logic -->
+<!-- Like Button Logic and AI Reply Generation Script -->
 <script type="text/javascript">
   function like(button) {
     const likeCountElement = document.getElementById("likecount");
@@ -187,10 +198,48 @@
       }
     }).catch(error => console.error('Error:', error));
   }
+
+  // AI Reply Toggle and Generation Logic
+  document.addEventListener("DOMContentLoaded", function () {
+    const aiToggle = document.getElementById("aiToggle");
+    const generateReplyBtn = document.getElementById("generateReplyBtn");
+    const promptInput = document.getElementById("aiPromptInput");
+
+    // Enable/disable the Generate Reply button based on the toggle state
+    aiToggle.addEventListener("change", function () {
+      generateReplyBtn.disabled = !this.checked;
+    });
+
+    // On click, call the server route to generate the AI reply using the user's comment text
+    generateReplyBtn.addEventListener("click", function () {
+      const postId = "<%= post._id %>";
+      const userPrompt = promptInput.value.trim();
+
+      if (!userPrompt) {
+        alert("Please type your comment in the text area before generating an AI reply.");
+        return;
+      }
+
+      fetch("/generate-reply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ postId, useAI: true, prompt: userPrompt })
+      })
+              .then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                  // Reload the page to display the new AI-generated comment
+                  location.reload();
+                } else {
+                  alert(data.error || "Error generating AI reply");
+                }
+              })
+              .catch(err => console.error("Fetch error:", err));
+    });
+  });
 </script>
 
 </body>
 </html>
-
-
-

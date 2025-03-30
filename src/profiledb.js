@@ -36,6 +36,7 @@ const profileSchema = new mongoose.Schema({
     ],
     default: [],
   },
+  aiReplyEnabled: { type: Boolean, default: false } // New field
 });
 
 const Profile = mongoose.model("profile", profileSchema);

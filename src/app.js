@@ -9,6 +9,8 @@ const sessions = require("express-session");
 // const collection = require("./mongodb");
 const PosT = require("./postdb");
 const Profile = require("./profiledb");
+// At the top of app.js (after other require statements)
+const { generateReply } = require("../openaihelper/openai");
 // const conn = require("./connection")
 let imagename
 const multer = require("multer");
@@ -656,4 +658,82 @@ app.listen(process.env.PORT || 3000, () => {
   console.log("server started at port 3000");
 });
 
+// // Route to generate an AI reply for a post (you can adjust the URL as needed)
+// app.post("/generate-reply", async (req, res) => {
+//   // Check if user is logged in
+//   if (!req.session.username) return res.status(401).json({ error: "Not logged in" });
+//
+//   const { postId, useAI } = req.body;
+//
+//   // Make sure the toggle (useAI) is enabled
+//   if (!useAI) {
+//     return res.status(400).json({ error: "AI reply generation not enabled" });
+//   }
+//
+//   try {
+//     // Find the post by id
+//     const post = await PosT.findById(postId).lean();
+//     if (!post) return res.status(404).json({ error: "Post not found" });
+//
+//     // Create a prompt based on the post content or title.
+//     const prompt = `Generate a thoughtful reply for the post titled "${post.title}" with content: ${post.content}`;
+//
+//     // Call the OpenAI API to generate a reply
+//     const aiReply = await generateReply(prompt);
+//
+//     // Option: Save the AI reply as a comment in the post's comments array.
+//     const newComment = {
+//       user: "AI Assistant",
+//       text: aiReply,
+//       date: new Date(),
+//     };
+//
+//     await PosT.findByIdAndUpdate(postId, { $push: { comments: newComment } });
+//
+//     // Return the generated reply (and optionally the updated comment list)
+//     res.json({ success: true, reply: aiReply });
+//   } catch (err) {
+//     console.error("Error generating AI reply:", err);
+//     res.status(500).json({ error: "Error generating reply" });
+//   }
+// });
+//
 
+
+app.post("/generate-reply", async (req, res) => {
+  if (!req.session.username) return res.status(401).json({ error: "Not logged in" });
+
+  const { postId, useAI, prompt } = req.body;
+
+  if (!useAI) {
+    return res.status(400).json({ error: "AI reply generation not enabled" });
+  }
+
+  try {
+    // Find the post by id
+    const post = await PosT.findById(postId).lean();
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    // Use the prompt provided by the user or fall back to a default prompt
+    const promptToSend = prompt && prompt.length > 0 ? prompt :
+        `Generate a thoughtful reply for the post titled "${post.title}" with content: ${post.content}`;
+
+    // Call the OpenAI API to generate a reply
+    const aiReply = await generateReply(promptToSend);
+
+    // Save the AI reply as a comment in the post's comments array
+    const newComment = {
+      user: "AI Assistant",
+      text: aiReply,
+      date: new Date(),
+    };
+
+    await PosT.findByIdAndUpdate(postId, { $push: { comments: newComment } });
+
+    // Return the generated reply in the JSON response
+    res.json({ success: true, reply: aiReply });
+  } catch (err) {
+    console.error("Error generating AI reply:", err);
+    res.status(500).json({ error: "Error generating reply" });
+  }
+});
