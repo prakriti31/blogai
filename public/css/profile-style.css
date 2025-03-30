@@ -1,249 +1,224 @@
+/* Use home theme variables for consistency */
 :root {
-  --uiclr: #009d84;
-  --white: #e4e9fd;
-  --black: #040c0e;
-  --light-black: rgb(53, 50, 50);
+  --profile-green: #009d84; /* Green for profile left box */
+  --profile-white: var(--white);
+  --profile-font: var(--font-main);
 }
-* {
-  margin: 0;
-  padding: 0;
-  font-family: Arial;
-}
-body{
-  background-color: rgba(128, 128, 128, 0.321);
-}
-nav {
-  background-color: white;
-  height: 70px;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.logo {
-  width: 10%;
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--uiclr);
-  margin-left: 10px;
-}
-.nav-items {
-  width: 30%;
-}
-.nav-items ul {
-  display: flex;
-  justify-content: space-around;
-  flex-direction: row;
-}
-.nav-items ul li {
-  list-style: none;
-}
-.nav-items ul li a {
-  text-decoration: none;
-  color: var(--uiclr);
-  font-size: 1.08rem;
-}
-/* ------------------------------------------------------------- */
-main{
+
+/* Remove duplicate resets since home-style.css is loaded first */
+.profile-main {
   display: flex;
   overflow: hidden;
+  gap: 20px;
+  padding: 20px;
 }
-.profile-container{
-  height:90vh;
-  background-color: rgb(255, 255, 255);
-  width: 20%;
-}
-.posts-container{
-  height:90vh;
-  /* background-color: aquamarine; */
-  width:80%;
-}
-/* ------------------------------------------------------------------ */
 
-.profile-info-container{
-  height: 65%;
-  background-color:rgba(0, 157, 131,.8);
-  border-bottom-left-radius:20px ;
-  border-bottom-right-radius: 20px;
-}
-.dp{
-  height: 40%;
+/* Merged Left Profile Box */
+.profile-box {
+  width: 20%;
+  height: 90vh;
+  background-color: var(--secondary);
+  color: var(--white);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   display: flex;
-  justify-content:center ;
-  align-items: end;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
 }
-.dp img{
+
+/* Profile Header (Picture & Basic Info) */
+.profile-header {
+  text-align: center;
+}
+.dp {
+  margin-bottom: 15px;
+}
+.dp img {
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  margin-bottom:5% ;
   object-fit: cover;
-  transition: .8s;
+  border: 3px solid var(--primary);
+  transition: transform 0.3s ease;
 }
-.dp:focus img{
-  scale:2;
+.dp:focus img {
+  transform: scale(1.1);
 }
-
-.about{
-  height: 30%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  color: white;
+.about {
+  margin-bottom: 10px;
 }
-.username{
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-.bio{ 
-  text-align: center;
-  color: rgb(247, 242, 242);
-  font-size: .9rem;
-  width: 90%;
-}
-.web-link a{
-  text-decoration: none;
-  color: white;
-}
-hr{
-  margin: 20px 30px;
-}
-.stats{
-  height: 30%;
-  display: flex;
-  flex-direction: row;
-  justify-content:space-around;
-}
-.stats div{
-  display: flex;
-  flex-direction: column;
-  text-align: center;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: white;
-}
-.stats div p{
-  margin: 6%;
-}
-.contact-container{
-  height: 40%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 7%;
-}
-.contact-container h1{
-  text-transform: uppercase;
-  font-size: 1.1rem;
-  margin-bottom: 5%;
-  color: var(--uiclr);
-}
-.mail-phone{
-  display: flex;
-  flex-direction: row;
-  justify-content:space-around;
-  width: 100%;
-}
-.mail-phone p{
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  text-align: center;
-  width: 50%;
-  font-size: .7rem;
-  color:gray;
-  transition: .5s;
-}
-.mail-phone p:hover{
-  color: black;
-  scale: 1.2;
-}
-.mail-phone p:hover i{
-  scale: .7;
-}
-.mail-phone p i{
-  font-size: 1.5rem;
+.username {
+  font-weight: 700;
+  font-size: 1.2rem;
   margin-bottom: 5px;
-  color: var(--uiclr);
-  transition: .5s;
 }
-.mail-phone p a{
-  text-decoration: none;
-  color:gray
+.bio {
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
-.mail-phone p:hover a{
-  color:black;
+
+/* Contact Info */
+.profile-contact {
+  text-align: center;
+  font-size: 0.9rem;
+  margin: 10px 0;
 }
-.socials{
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-around;
-  margin-top: 10%;
-}
-.socials a{
-  text-decoration: none;
-  color: var(--uiclr);
-  font-size: 1.5rem;
+.profile-contact p {
   margin: 5px 0;
-  transition: .2s;
 }
-.socials a:hover{
-  scale: 1.6;
+.profile-contact i {
+  margin-right: 5px;
+  color: var(--white);
 }
-.socials a:nth-child(1):hover{
-  color: #3b5998;
+.profile-contact a {
+  text-decoration: none;
+  color: var(--white);
+  transition: color 0.3s ease;
 }
-.socials a:nth-child(2):hover{
-  color: #d62976;
-}
-.socials a:nth-child(3):hover{
-  color: #00acee;
-}
-.socials a:nth-child(4):hover{
-  color:#4FCE5D;
-}
-.edit-profile-container{
-  width: 100%;
-  display: flex;
-  justify-content:center;
-  padding: 20px 0;
-}
-.edit-profile-container a{
- text-decoration: none;
- color: white;
- background-color: var(--uiclr);
- padding: 10px 30px;
- border-radius: 5px;
-}
-.edit-profile-container a:hover{
-background-color:#008670 ;
+.profile-contact a:hover {
+  color: var(--primary);
 }
 
-.recent-posts{
-  background-color: transparent;
+/* Stats Section */
+.profile-stats {
+  display: flex;
+  justify-content: space-around;
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 10px 0;
 }
-.recent-posts{
-  width: 100%;
-  gap: 5%;
+.profile-stats div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.posts-container{
+
+/* Edit Profile Button */
+.edit-profile-container {
+  text-align: center;
+  margin-top: 10px;
+}
+.edit-profile-container a {
+  text-decoration: none;
+  background-color: var(--primary);
+  color: var(--white);
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+.edit-profile-container a:hover {
+  background-color: var(--secondary);
+}
+
+/* Right Posts Section */
+.posts-container {
+  width: 80%;
+  height: 90vh;
   overflow-y: scroll;
-  overflow-x: hidden;
+  padding: 20px;
 }
-.recent-posts-container{
+.recent-posts-container {
+  max-width: 1200px;
+  margin: auto;
+}
+.recent-posts-container h1 {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  color: var(--text-color);
+  text-align: center;
+}
+.recent-posts {
   display: flex;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: flex-start;
 }
-.recent-post-box{
-  margin-bottom: -40px;
+.recent-post-box {
+  background-color: var(--white);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  width: calc(33.333% - 20px);
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--text-color);
 }
-.post-footer p i{
-  color: red;
+.recent-post-box:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
 }
-
-
-
+.link-card {
+  text-decoration: none;
+  color: inherit;
+}
+.img-container {
+  height: 40%;
+  overflow: hidden;
+}
+.img-container div {
+  height: 100%;
+}
+.img-container img {
+  width: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.recent-post-box:hover .img-container img {
+  transform: scale(1.1);
+}
+.days {
+  margin: 10px;
+  text-align: right;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--gray-dark);
+}
+.recent-post-box h2 {
+  margin: 10px;
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-color);
+}
+.post-desc {
+  margin: 5px 10px;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  color: #6c6b6b;
+  flex-grow: 1;
+  overflow: hidden;
+}
+.post-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px;
+}
+.post-footer p {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.post-footer button {
+  padding: 5px 15px;
+  background-color: var(--primary);
+  border: none;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  color: var(--white);
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+.post-footer button:hover {
+  background-color: var(--secondary);
+}
