@@ -42,7 +42,7 @@
       <h1><%= post.title %></h1>
     </div>
 
-    <!-- Date, Author, and Like Section -->
+    <!-- Date, Author, and Action Buttons Section -->
     <div class="date-time-section">
       <%
       var days = Math.round((date - post.date) / 86400000);
@@ -68,25 +68,22 @@
         days += " days ago";
       }
       %>
-
-      <!-- Author and Time -->
       <p>By <a href="/profile/<%= post.author %>" class="username-text"><%= post.author %></a> Published <%= days %></p>
-
-      <!-- Edit/Delete Options for Author/Admin -->
-      <% if (post.author === user || user === "admin") { %>
-        <p>
-          <a href="/update/<%= post._id %>"><i class="fa-solid fa-pen"></i></a>
-          <a href="/delete/<%= post._id %>"><i class="fa-solid fa-trash"></i></a>
-        </p>
-      <% } %>
-
-      <!-- Like Button -->
-      <% var liked = post.likedby && post.likedby.includes(user) ? "red" : "white"; %>
-      <p class="like-button">
-        <button onclick="like(this)" class="<%= liked %>">
-          <i class="fa-sharp fa-solid fa-heart"></i></button>
-        <span id="likecount"><%= post.like || 0 %></span> likes
-      </p>
+      <div class="action-buttons">
+        <% var liked = post.likedby && post.likedby.includes(user) ? "red" : "white"; %>
+        <button class="action-btn like-btn <%= liked %>" onclick="like(this)">
+          <i class="fa-sharp fa-solid fa-heart"></i>
+        </button>
+        <% if (post.author === user || user === "admin") { %>
+          <a href="/update/<%= post._id %>" class="action-btn edit-btn">
+            <i class="fa-solid fa-pen"></i>
+          </a>
+          <a href="/delete/<%= post._id %>" class="action-btn delete-btn">
+            <i class="fa-solid fa-trash"></i>
+          </a>
+        <% } %>
+        <span id="likecount"><%= post.like || 0 %></span>
+      </div>
     </div>
 
     <!-- Post Content -->
@@ -96,20 +93,21 @@
 
     <!-- Comments Section -->
     <div class="comments-section">
-      <%
-      // Safely handle undefined comments array
-      const comments = post.comments || [];
-      const commentsCount = comments.length;
-      %>
-      <h3>Comments (<%= commentsCount %>)</h3>
+      <h3>Comments (<%= post.comments ? post.comments.length : 0 %>)</h3>
 
       <!-- Comment Form -->
       <% if (user) { %>
-        <form action="/posts/<%= post._id %>/comment" method="POST">
-          <!-- Added id to capture user's typed comment -->
+        <form action="/posts/<%= post._id %>/comment" method="POST" class="comment-form">
           <textarea name="commentText" id="aiPromptInput" placeholder="Write your comment..." rows="3" required></textarea>
           <button type="submit" class="comment-submit">Post Comment</button>
         </form>
+        <!-- AI-generated Reply Section -->
+        <div class="ai-reply-section">
+          <label for="aiToggle">
+            <input type="checkbox" id="aiToggle" /> Enable AI-generated reply (uses your comment text)
+          </label>
+          <button id="generateReplyBtn" disabled>Generate Reply</button>
+        </div>
       <% } else { %>
         <!-- Login Prompt -->
         <div class="login-prompt">
@@ -119,11 +117,9 @@
 
       <!-- Comments List -->
       <div class="comments-list">
-        <% if (commentsCount > 0) { %>
-          <% comments.forEach(comment => { %>
-            <!-- Individual Comment Card -->
+        <% if (post.comments && post.comments.length > 0) { %>
+          <% post.comments.forEach(comment => { %>
             <div class="comment-card">
-              <!-- Comment Header with Author and Date -->
               <div class="comment-header">
                 <span class="comment-author"><%= comment.user %></span>
                 <span class="comment-date">
@@ -131,8 +127,6 @@
                   <%= new Date(comment.date).toLocaleTimeString() %>
                 </span>
               </div>
-
-              <!-- Comment Body -->
               <div class="comment-body">
                 <%= comment.text %>
               </div>
@@ -143,27 +137,14 @@
         <% } %>
       </div>
     </div>
-
-    <!-- AI-generated Reply Section -->
-    <% if (user) { %>
-      <div class="ai-reply-section" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;">
-        <label for="aiToggle">
-          <input type="checkbox" id="aiToggle" /> Enable AI-generated reply (uses your comment text)
-        </label>
-        <button id="generateReplyBtn" disabled style="margin-left: 10px;">Generate Reply</button>
-      </div>
-    <% } %>
   </div>
 
   <!-- Related Posts Section -->
   <div class="related-posts-section">
     <% posts.reverse().forEach(relatedPost => { %>
       <% if (relatedPost._id.toString() !== post._id.toString()) { %>
-        <!-- Individual Related Post Card -->
         <a href="/posts/<%= relatedPost._id %>" class="related-card">
-          <!-- Thumbnail Fallback Logic -->
           <img src="/thumbnails/<%= relatedPost.thumbnail || 'default-image.png' %>" alt="" />
-          <!-- Title and Author of Related Post -->
           <div>
             <h1><%= relatedPost.title %></h1>
             <p><%= relatedPost.author %></p>
@@ -174,7 +155,6 @@
   </div>
 </main>
 
-<!-- Like Button Logic and AI Reply Generation Script -->
 <script type="text/javascript">
   function like(button) {
     const likeCountElement = document.getElementById("likecount");
@@ -205,12 +185,10 @@
     const generateReplyBtn = document.getElementById("generateReplyBtn");
     const promptInput = document.getElementById("aiPromptInput");
 
-    // Enable/disable the Generate Reply button based on the toggle state
     aiToggle.addEventListener("change", function () {
       generateReplyBtn.disabled = !this.checked;
     });
 
-    // On click, call the server route to generate the AI reply using the user's comment text
     generateReplyBtn.addEventListener("click", function () {
       const postId = "<%= post._id %>";
       const userPrompt = promptInput.value.trim();
