@@ -87,7 +87,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/logout", (req, res) => {
-  req.session.destroy(); 
+  req.session.destroy();
   imagename=null
   res.redirect("/");
 });
@@ -220,6 +220,48 @@ app.get("/compose", (req, res) => {
   }
 });
 
+// app.post("/compose", upload.single("image"), async (req, res) => {
+//   try {
+//     const postData = {
+//       author: req.session.username,
+//       title: req.body.postTitle,
+//       content: req.body.postBody,
+//       thumbnail: imagename,
+//       date: Date.now(),
+//       like: 0,
+//     };
+//     const newPost = await PosT.create(postData);
+//
+//     // Notify users subscribed to topics matching the post title
+//     const profiles = await Profile.find({
+//       subscriptions: { $exists: true, $not: { $size: 0 } },
+//     });
+//
+//     for (const profile of profiles) {
+//       for (const topic of profile.subscriptions) {
+//         if (newPost.title.toLowerCase().includes(topic.toLowerCase())) {
+//           const notification = {
+//             postId: newPost._id,
+//             topic,
+//             message: `A new post titled "${newPost.title}" about "${topic}" has been published.`,
+//             date: new Date(),
+//           };
+//           await Profile.updateOne(
+//               { _id: profile._id },
+//               { $push: { notifications: notification } }
+//           );
+//         }
+//       }
+//     }
+//
+//     res.redirect("/home");
+//   } catch (err) {
+//     console.error("Error creating post or sending notifications:", err);
+//     res.status(500).send("Error creating post or sending notifications.");
+//   }
+// });
+
+
 app.post("/compose", upload.single("image"), async (req, res) => {
   try {
     const postData = {
@@ -230,13 +272,24 @@ app.post("/compose", upload.single("image"), async (req, res) => {
       date: Date.now(),
       like: 0,
     };
+    // Create post in MongoDB
     const newPost = await PosT.create(postData);
 
-    // Notify users subscribed to topics matching the post title
+    // Index the new post in ElasticSearch
+    await esClient.index({
+      index: 'posts',
+      id: newPost._id.toString(), // use MongoDB _id as ElasticSearch document ID
+      body: {
+        ...newPost.toObject(),
+        date: new Date(newPost.date) // Ensure the date is in a date format
+      }
+    });
+    await esClient.indices.refresh({ index: 'posts' }); // refresh to make sure the document is searchable immediately
+
+    // Notify subscribers (existing logic)
     const profiles = await Profile.find({
       subscriptions: { $exists: true, $not: { $size: 0 } },
     });
-
     for (const profile of profiles) {
       for (const topic of profile.subscriptions) {
         if (newPost.title.toLowerCase().includes(topic.toLowerCase())) {
@@ -253,13 +306,49 @@ app.post("/compose", upload.single("image"), async (req, res) => {
         }
       }
     }
-
     res.redirect("/home");
   } catch (err) {
     console.error("Error creating post or sending notifications:", err);
     res.status(500).send("Error creating post or sending notifications.");
   }
 });
+
+app.post("/update/:custom", upload.single("image"), async (req, res) => {
+  try {
+    // Update the post in MongoDB
+    const updatedPost = await PosT.findByIdAndUpdate(
+        req.params.custom,
+        {
+          title: req.body.postTitle,
+          content: req.body.postBody,
+          thumbnail: imagename,
+        },
+        { new: true }
+    );
+    if (!updatedPost) {
+      return res.status(404).send("Post not found");
+    }
+
+    // Update the post in ElasticSearch
+    await esClient.update({
+      index: 'posts',
+      id: updatedPost._id.toString(),
+      body: {
+        doc: {
+          title: updatedPost.title,
+          content: updatedPost.content,
+          thumbnail: updatedPost.thumbnail,
+          // Include any fields you need to update
+        }
+      }
+    });
+    res.redirect("/posts/" + req.params.custom);
+  } catch (err) {
+    console.error("Update error:", err);
+    res.status(500).send("Error updating post");
+  }
+});
+
 
 // app.get("/posts/:custom", (req, res) => {
 //    if(req.session.username){
@@ -422,7 +511,7 @@ app.get("/delete/:custom", (req, res) => {
         res.render("notfound")
       }
   })
-  
+
 }else{
   res.redirect("/")
 }
@@ -437,14 +526,14 @@ app.get("/profile/:customRoute", (req, res) => {
 //   if(err){
 //     console.log(err);
 //   }else{
-//   console.log(result.dp); 
+//   console.log(result.dp);
 //   }
 // })
 
   PosT.find({ author: customRoute}, (err, result)=> {
     if (err){
         console.log(err);
-        
+
     }
     else{
         req.session.userposts=result;
@@ -457,8 +546,8 @@ app.get("/profile/:customRoute", (req, res) => {
         });
         // console.log(results);
         })
-        
-        
+
+
     }})
     // console.log(req.session.userposts);
   }else{
@@ -483,9 +572,9 @@ app.get("/editprofile/:custom",(req,res)=>{
 
 
 app.post("/editprofile/:custom",upload.single("image"), async (req, res) => {
-  const custom=req.params.custom 
+  const custom=req.params.custom
 
- 
+
 // console.log(imagename);
   Profile.findOneAndUpdate(
     { username: req.session.username },
@@ -528,7 +617,7 @@ app.get("/admin",(req,res)=>{
     res.redirect("/")
   }
   // })
- 
+
 })
 
 app.get("/removeuser/:custom", (req, res) => {
@@ -570,3 +659,5 @@ app.get("/:custom/:custom2",(req,res)=>{
 app.listen(process.env.PORT || 3000, () => {
   console.log("server started at port 3000");
 });
+
+
