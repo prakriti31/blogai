@@ -1,6 +1,6 @@
 const express = require("express");
 // Elastic search client
-const esClient = require("./elasticsearchClient");
+// const esClient = require("./elasticsearchClient");
 const mongoose = require("mongoose");
 const app = express();
 const path = require("path");
@@ -262,6 +262,8 @@ app.get("/compose", (req, res) => {
 // });
 
 
+const { indexPost } = require("../elasticsearch/elasticsearchOperations");
+
 app.post("/compose", upload.single("image"), async (req, res) => {
   try {
     const postData = {
@@ -272,24 +274,17 @@ app.post("/compose", upload.single("image"), async (req, res) => {
       date: Date.now(),
       like: 0,
     };
-    // Create post in MongoDB
+    // Save the post in MongoDB (or your primary datastore)
     const newPost = await PosT.create(postData);
+    console.log("New post created with id:", newPost._id.toString());
+    // Now index the new post in Elasticsearch
+    await indexPost(newPost);
 
-    // Index the new post in ElasticSearch
-    await esClient.index({
-      index: 'posts',
-      id: newPost._id.toString(), // use MongoDB _id as ElasticSearch document ID
-      body: {
-        ...newPost.toObject(),
-        date: new Date(newPost.date) // Ensure the date is in a date format
-      }
-    });
-    await esClient.indices.refresh({ index: 'posts' }); // refresh to make sure the document is searchable immediately
-
-    // Notify subscribers (existing logic)
+    // Notify users subscribed to topics matching the post title
     const profiles = await Profile.find({
       subscriptions: { $exists: true, $not: { $size: 0 } },
     });
+
     for (const profile of profiles) {
       for (const topic of profile.subscriptions) {
         if (newPost.title.toLowerCase().includes(topic.toLowerCase())) {
@@ -306,10 +301,11 @@ app.post("/compose", upload.single("image"), async (req, res) => {
         }
       }
     }
+
     res.redirect("/home");
   } catch (err) {
-    console.error("Error creating post or sending notifications:", err);
-    res.status(500).send("Error creating post or sending notifications.");
+    console.error("Error creating post, indexing, or sending notifications:", err);
+    res.status(500).send("Error creating post, indexing, or sending notifications.");
   }
 });
 
