@@ -4,205 +4,176 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Blog.ai - Home</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/home-style.css">
     <script src="https://kit.fontawesome.com/eabac940d1.js" crossorigin="anonymous"></script>
-    </head>
+</head>
 <body>
-    <script src="/js/script.js"></script>
-    <nav>
-        <div class="logo"><a href="/home">myBlog</a></div>
-        <div class="search" >
-            <form action="">
+<script src="/js/script.js"></script>
+<nav>
+    <div class="logo"><a href="/home">Blog.ai</a></div>
+    <div class="search">
+        <form action="">
             <input type="text" onkeyup="sendData(this)" id="search" placeholder="Search articles">
-            <button type="reset" class="reset-btn"  id="reset-btn" onclick="sendData(this)"><i class="fa-solid fa-xmark"></i> </button>
-            </form>
-            <div class="results" id="searchDiv">
-
-        </div>
-        </div>
-        <div class="nav-items">
-            <ul>
-                <li> <a href="/home"> Home</a></li>
-                <% if(user==="admin"){ %>
-                <li> <a href="/admin">Dashboard</a></li>
-                <% }else{%>
-                    <li> <a href="/profile/<%=user %>"> My profile</a></li>
-                    <% }%>
-                <li class="subscription-cta">
-                    <a href="/subscriptions" class="btn-subscribe">Manage Subscriptions</a>
-                </li>
-                <!-- New AI Agent button -->
-                <li>
-                    <a href="/ai-agent" class="btn-agent">AI Agent</a>
-                </li>
-                <li> <a href="/logout"> Logout</a></li>
-            </ul>
-        </div>
-    </nav>
-    <main>
-        <div class="pop-posts-container">
-            <li class="notifications-icon">
-                <i class="fa-solid fa-bell" id="notification-bell"></i>
-                <% if (notifications.length > 0) { %>
-                    <span class="notification-badge"><%= notifications.length %></span>
-                <% } %>
-            </li>
-            <div id="notification-popup" class="hidden">
-                <div class="popup-content">
-                    <span class="close-popup">&times;</span>
-                    <h2>Notifications</h2>
-                    <ul id="notification-list">
-                        <% if (notifications.length > 0) { %>
-                            <% notifications.forEach(notification => { %>
-                                <li>
-                                    <a href="/posts/<%= notification.postId %>"><%= notification.message %></a>
-                                </li>
-                            <% }) %>
-                        <% } else { %>
-                            <li id="no-notifications">No new notifications</li>
-                        <% } %>
-                    </ul>
+            <button type="reset" class="reset-btn" id="reset-btn" onclick="sendData(this)">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div class="results" id="searchDiv"></div>
+    </div>
+    <div class="nav-items">
+        <ul>
+            <li><a href="/home">Home</a></li>
+            <% if(user==="admin"){ %>
+                <li><a href="/admin">Dashboard</a></li>
+            <% } else { %>
+                <li><a href="/profile/<%= user %>">My Profile</a></li>
+            <% } %>
+            <li><a href="/subscriptions">Manage Subscriptions</a></li>
+            <li><a href="/ai-agent">AI Agent</a></li>
+            <li><a href="/logout">Logout</a></li>
+        </ul>
+    </div>
+    <li class="notifications-icon">
+        <i class="fa-solid fa-bell" id="notification-bell"></i>
+        <% if (notifications.length > 0) { %>
+            <span class="notification-badge"><%= notifications.length %></span>
+        <% } %>
+    </li>
+</nav>
+<main>
+    <div class="pop-posts-container">
+        <div id="notification-popup" class="hidden">
+            <div class="popup-content">
+                <span class="close-popup">&times;</span>
+                <h2>Notifications</h2>
+                <ul id="notification-list">
                     <% if (notifications.length > 0) { %>
-                        <button id="clear-notifications">Clear All</button>
+                        <% notifications.forEach(notification => { %>
+                            <li>
+                                <a href="/posts/<%= notification.postId %>"><%= notification.message %></a>
+                            </li>
+                        <% }) %>
+                    <% } else { %>
+                        <li id="no-notifications">No new notifications</li>
                     <% } %>
-                </div>
-            </div>
-
-<!--            <div class="notifications-container">-->
-<!--                <h2>Notifications</h2>-->
-<!--                <ul>-->
-<!--                    <% if (locals.notifications?.length) { %>-->
-<!--                        <% locals.notifications.forEach(notification => { %>-->
-<!--                            <li>-->
-<!--                                <a href="/posts/<%= notification.postId %>">-->
-<!--                                    <%= notification.message %>-->
-<!--                                </a>-->
-<!--                                <span class="notification-date">-->
-<!--            <%= new Date(notification.date).toLocaleDateString() %>-->
-<!--          </span>-->
-<!--                            </li>-->
-<!--                        <% }) %>-->
-<!--                    <% } else { %>-->
-<!--                        <li>No new notifications</li>-->
-<!--                    <% } %>-->
-<!--                </ul>-->
-<!--            </div>-->
-            <h1>Popular Articles <a href="/compose"><button><i class="fa-sharp fa-solid fa-pen"></i>&nbsp; Compose</button></a> </h1>
-            
-            
-            <div class="pop-posts">
-                <!-- <marquee behavior="alternate" direction="" onmouseover="this.stop();" onmouseout="this.start();"> -->
-                <% if(sposts){ %>
-                <% sposts.forEach((sposts)=>{ %>
-
-                <div class="post-box">
-                   <img src="thumbnails/<%= sposts.thumbnail %>" alt="" onerror="this.onerror=null; this.src='images/default-image.png'">
-                   <div class="middle">
-                    <a href="/posts/<%= sposts._id %>" >Read More</a>
-                  </div>
-                   <h2><%= sposts.title %></h2>
-                   <p><%= sposts.content %></p>
-                </div>
-                <% })} %>
-                 
-            <!-- </marquee> -->
+                </ul>
+                <% if (notifications.length > 0) { %>
+                    <button id="clear-notifications">Clear All</button>
+                <% } %>
             </div>
         </div>
-
-        <div class="recent-posts-container">
-            <h1>Recent Articles</h1>
-            <div class="recent-posts">
-                 <% posts.reverse().forEach((posts)=>{ %>
-                    <div class="recent-post-box">
-                    <a href="/posts/<%= posts._id %>" class="link-card">
-                    <div class="img-container">
-                        <div>
-                        <img src="thumbnails/<%= posts.thumbnail %>" alt="" onerror="this.onerror=null; this.src='images/default-image.png'">
+        <h1>
+            Popular Articles
+            <a href="/compose"><button><i class="fa-solid fa-pen"></i>&nbsp; Compose</button></a>
+        </h1>
+        <div class="pop-posts">
+            <% if(sposts){ %>
+                <% sposts.forEach((spost) => { %>
+                    <div class="post-box">
+                        <img src="thumbnails/<%= spost.thumbnail %>" alt="Thumbnail" onerror="this.onerror=null; this.src='images/default-image.png'">
+                        <div class="middle">
+                            <a href="/posts/<%= spost._id %>">Read More</a>
+                        </div>
+                        <h2><%= spost.title %></h2>
+                        <p><%= spost.content %></p>
                     </div>
-                    </div>
-                    <% var days=Math.round((date-posts.date)/86400000)
-                    if(days===0){
-                       days=Math.round((date-posts.date)/3600000)
-                       if(days===0){
-                        days=Math.round((date-posts.date)/60000)
-                        if(days===0){
-                            days="Justnow"
-                        }else if(days===1){
-                            days="1 minute ago"
-                        }else{
-                            days=days+" minutes ago"
-                        }
-                       }else if(days===1){
-                        days="1 hour ago"
-                       }else{
-                        days=days+" hours ago"
-                       }
-                    }
-                    else if(days===1){
-                        days="1 day ago"
-                    }
-                    else{
-                        days=days+" days ago"
-                    } %>
-                    <p class="days"><%= days %></p>
-                    <h2 title="<%= posts.title %>"><%= posts.title %></h2>
-                    <p class="post-desc">
-                        <%= posts.content %>
-                    </p>
-                    <div class="post-footer">
-                        <p><%= posts.author %></p>
-                       <button >ReadMore</button>
-                    </div>
-                </a>
-                </div>
                 <% }) %>
-            </div>
-            
+            <% } %>
         </div>
-    </main>
-    <script>
-function sendData(e){
-    const searchResults = document.getElementById("searchDiv");
-        if(e.value.length!=0){
-            document.getElementById("reset-btn").style.display="block"
-        }else{
-            document.getElementById("reset-btn").style.display="none"
+    </div>
+
+    <div class="recent-posts-container">
+        <h1>Recent Articles</h1>
+        <div class="recent-posts">
+            <% posts.reverse().forEach((post) => { %>
+                <div class="recent-post-box">
+                    <a href="/posts/<%= post._id %>" class="link-card">
+                        <div class="img-container">
+                            <div>
+                                <img src="thumbnails/<%= post.thumbnail %>" alt="Thumbnail" onerror="this.onerror=null; this.src='images/default-image.png'">
+                            </div>
+                        </div>
+                        <%
+                            var days = Math.round((date - post.date) / 86400000);
+                            if (days === 0) {
+                                days = Math.round((date - post.date) / 3600000);
+                                if (days === 0) {
+                                    days = Math.round((date - post.date) / 60000);
+                                    if (days === 0) {
+                                        days = "Just now";
+                                    } else if (days === 1) {
+                                        days = "1 minute ago";
+                                    } else {
+                                        days = days + " minutes ago";
+                                    }
+                                } else if (days === 1) {
+                                    days = "1 hour ago";
+                                } else {
+                                    days = days + " hours ago";
+                                }
+                            } else if (days === 1) {
+                                days = "1 day ago";
+                            } else {
+                                days = days + " days ago";
+                            }
+                        %>
+                        <p class="days"><%= days %></p>
+                        <h2 title="<%= post.title %>"><%= post.title %></h2>
+                        <p class="post-desc"><%= post.content %></p>
+                        <div class="post-footer">
+                            <p><%= post.author %></p>
+                            <button>Read More</button>
+                        </div>
+                    </a>
+                </div>
+            <% }) %>
+        </div>
+    </div>
+</main>
+<script>
+    function sendData(e) {
+        const searchResults = document.getElementById("searchDiv");
+        if (e.value.length !== 0) {
+            document.getElementById("reset-btn").style.display = "block";
+        } else {
+            document.getElementById("reset-btn").style.display = "none";
         }
-        
-        let match = e.value.match(/^[a-z A-Z]*/)
-        let match2 = e.value.match(/\s*/)
-        if(match2[0] === e.value){
-            searchResults.innerHTML ='';
-            return
-        }
-        if(match[0] === e.value){
-        fetch('search',{
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({payload: e.value})
-        }).then(res=> res.json()).then(data => {
-            let payload =data.payload;
+
+        let match = e.value.match(/^[a-z A-Z]*/);
+        let match2 = e.value.match(/\s*/);
+        if (match2[0] === e.value) {
             searchResults.innerHTML = '';
-            if(payload.length < 1){
-                searchResults.innerHTML = '<p>Sorry nothing found.</p>';
-                return
-            }
-            payload.forEach((PosT,index)=>{
-                if(index > 0) searchResults.innerHTML +='';
-                searchResults.innerHTML += `<p><a href="/posts/${PosT._id}" onmouseover="suggest(this)" id="data">${PosT.title}</a></p>`
+            return;
+        }
+        if (match[0] === e.value) {
+            fetch('search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payload: e.value })
             })
-        })
-        return
+                .then(res => res.json())
+                .then(data => {
+                    let payload = data.payload;
+                    searchResults.innerHTML = '';
+                    if (payload.length < 1) {
+                        searchResults.innerHTML = '<p>Sorry, nothing found.</p>';
+                        return;
+                    }
+                    payload.forEach((post) => {
+                        searchResults.innerHTML += `<p><a href="/posts/${post._id}" onmouseover="suggest(this)">${post.title}</a></p>`;
+                    });
+                });
+            return;
         }
         searchResults.innerHTML = '';
-        }
-        function suggest(e){
-           document.getElementById("search").value=e.innerHTML
-        }
-    
+    }
+
+    function suggest(e) {
+        document.getElementById("search").value = e.innerHTML;
+    }
 </script>
 </body>
 </html>
-
-
