@@ -1,4 +1,6 @@
 const express = require("express");
+// Elastic search client
+const esClient = require("./elasticsearchClient");
 const mongoose = require("mongoose");
 const app = express();
 const path = require("path");
@@ -259,20 +261,68 @@ app.post("/compose", upload.single("image"), async (req, res) => {
   }
 });
 
-app.get("/posts/:custom", (req, res) => {
-   if(req.session.username){
-  PosT.find((err, results) => {
+// app.get("/posts/:custom", (req, res) => {
+//    if(req.session.username){
+//   PosT.find((err, results) => {
+//     res.render("posts", {
+//       user: req.session.username,
+//       posts: results,
+//       date: Date.now(),
+//       id: req.params.custom,
+//     });
+//   });
+// }else{
+//   res.render("notfound")
+// }
+// });
+
+// Add to existing posts route
+app.get("/posts/:id", async (req, res) => {
+  try {
+    if (!req.session.username) return res.render("notfound");
+
+    const post = await PosT.findById(req.params.id).lean();
+    if (!post) return res.render("notfound");
+
+    const allPosts = await PosT.find().lean();
+
     res.render("posts", {
       user: req.session.username,
-      posts: results,
-      date: Date.now(),
-      id: req.params.custom,
+      post: post,         // Single post document
+      posts: allPosts,    // All posts for related articles
+      date: Date.now()
     });
-  });
-}else{
-  res.render("notfound")
-}
+  } catch (err) {
+    console.error("Post retrieval error:", err);
+    res.render("notfound");
+  }
 });
+
+// New comment submission route
+app.post("/posts/:id/comment", (req, res) => {
+  if(!req.session.username) return res.redirect("/");
+
+  const newComment = {
+    user: req.session.username,
+    text: req.body.commentText,
+    date: new Date()
+  };
+
+  PosT.findByIdAndUpdate(
+      req.params.id,
+      { $push: { comments: newComment } },
+      { new: true },
+      (err, updatedPost) => {
+        if(err) {
+          console.error("Comment error:", err);
+          return res.status(500).send("Error saving comment");
+        }
+        res.redirect(`/posts/${req.params.id}`);
+      }
+  );
+});
+
+
 app.post("/posts/:custom", (req, res) => {
   const id = req.params.custom;
   var userid = req.session.username;

@@ -18,7 +18,12 @@ const postSchema = new mongoose.Schema({
     thumbnail:String,
     date:Number,
     like:Number,
-    likedby:[String]
+    likedby:[String],
+    comments: [{
+        user: String,
+        text: String,
+        date: { type: Date, default: Date.now }
+    }]
     });
   
     
