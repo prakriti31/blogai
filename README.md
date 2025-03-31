@@ -1,43 +1,64 @@
+# BlogAI
 
-## Blogging-Website
-![Repo Views](https://views.whatilearened.today/views/github/arjuncvinod/Blogging-Website.svg?cache=remove)
-### Languages Used:
-#### Front end : ![HTML5](https://img.shields.io/badge/html5-%23E34F26.svg?style=flat&logo=html5&logoColor=white) ![CSS3](https://img.shields.io/badge/css3-%231572B6.svg?style=flat&logo=css3&logoColor=white) 
-#### Backend : ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=flat&logo=node.js&logoColor=white) ![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=flat&logo=express&logoColor=%2361DAFB)
-#### Database : ![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=flat&logo=mongodb&logoColor=white) <br />
-### Live Preview : [www.myblog.com](https://blogwebsite-1rl3.onrender.com/)
-## Installation
+BlogAI is a smart blogging platform that integrates AI-driven features for enhanced user interaction and experience.
+
+## Features
+
+- **Docker Elasticsearch**: Logs subscription and unsubscription events.
+- **AI-Powered Commenting**: Suggests comments using ChatGPT AI.
+- **Built-in Chatbot**: Acts as a tour guide for new users.
+
+## Getting Started
 
 ### Clone the Repository
 
-```bash
-git clone https://github.com/arjuncvinod/Blogging-Website.git
-cd Blogging-Website
-```
-### Install dependencies
-```console 
-npm install
-```
-### Start
-```console
-node src/App.js
-```
 ```sh
-The Website will be available at http://localhost:3000
+ git clone https://github.com/prakriti31/blogai.git
+ cd blogai
 ```
- **Screenshots**: 
 
-<h3 align="center"> Login section</h3>
-<img src="SH4.jpg">
-<h3 align="center"> Home Page</h3>
-<img src="SH2.jpg">
-<h3 align="center"> Post View</h3>
-<img src="SH1.jpg">
-<h3 align="center"> Profile Section</h3>
-<img src="SH3.jpg">
-<h3 align="center"> Admin Dashboard </h3>
+### Run the Application
 
-![image](https://github.com/arjuncvinod/Blogging-Website/assets/68469520/4c9f0f3c-3ac7-43e9-9854-d671f237c795)
+Ensure you have Node.js installed, then run:
 
-<h3  align="center" > Don't forget to hit the :star: if you like this repo. </h3>
-<h1 align="center"> Made with ❤️ by <a href="https://arjuncvinod.github.io">Arjun</a> </h1>
+```sh
+ node src/App.js
+```
+
+## Elasticsearch Debugging
+
+To check and debug your connection to Elasticsearch, use `checkPosts.js`:
+
+```sh
+ node src/checkPosts.js
+```
+
+### Test Elasticsearch Connection with cURL
+
+#### Search for a Post by Title (Example: "valorant")
+```sh
+curl -X POST "http://localhost:9200/posts/_search" \
+-H "Content-Type: application/json" \
+-d '{ "query": { "wildcard": { "title": "valorant" } } }'
+```
+
+#### Check if Elasticsearch is Running
+```sh
+curl -X GET "http://localhost:9200"
+```
+
+#### Check Elasticsearch Cluster Health
+```sh
+curl -k -u elastic:78lE7-J88xqqIMDvcxhX "https://localhost:9200/_cluster/health?pretty"
+```
+
+## Running Elasticsearch with Docker
+
+Ensure you have Docker installed, then pull and run the Elasticsearch image:
+
+```sh
+docker pull elasticsearch:latest
+docker run -d -p 9200:9200 -e "discovery.type=single-node" elasticsearch
+```
+
+## Enjoy Blogging with AI! 🚀
