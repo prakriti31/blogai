@@ -30,7 +30,6 @@ nav {
   height: 70px;
   width: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   padding: 0 20px;
 }
@@ -46,13 +45,16 @@ nav {
   color: var(--white);
 }
 
+/* Nav items container: flex to the right */
 .nav-items {
-  width: 40%;
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .nav-items ul {
   display: flex;
-  justify-content: space-around;
+  gap: 20px;
   align-items: center;
 }
 
@@ -77,9 +79,12 @@ nav {
   border: 2px solid var(--secondary);
 }
 
-/* Search */
+/* Search: allow shrinking & set max-width */
 .search {
   position: relative;
+  flex: 1;
+  max-width: 400px;
+  margin: 0 20px;
 }
 
 .search form {
@@ -89,8 +94,10 @@ nav {
   justify-content: center;
 }
 
+/* Responsive search input */
 #search {
-  width: 700px;
+  width: 100%;
+  max-width: 400px;
   height: 40px;
   border: none;
   border-radius: 30px;
@@ -101,14 +108,9 @@ nav {
   outline: none;
 }
 
-#search::placeholder {
-  font-size: 1.2rem;
-  color: var(--gray-dark);
-}
-
 .reset-btn {
   position: absolute;
-  right: 8%;
+  right: 10px;
   border: none;
   background: transparent;
   color: var(--gray-dark);
@@ -117,6 +119,15 @@ nav {
   cursor: pointer;
 }
 
+/* Notifications icon now inside nav-items */
+.notifications-icon {
+  position: relative;
+  cursor: pointer;
+  font-size: 1.8rem;
+  color: var(--white);
+}
+
+/* Search results dropdown */
 .results {
   position: absolute;
   top: 70px;

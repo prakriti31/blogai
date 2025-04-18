@@ -32,16 +32,17 @@
                 <li><a href="/profile/<%= user %>">My Profile</a></li>
             <% } %>
             <li><a href="/subscriptions">Manage Subscriptions</a></li>
+            <li><a href="/recommendations">Recommended for you</a></li>
             <li><a href="/ai-agent">AI Agent</a></li>
             <li><a href="/logout">Logout</a></li>
+            <li class="notifications-icon">
+                <i class="fa-solid fa-bell" id="notification-bell"></i>
+                <% if (notifications.length > 0) { %>
+                    <span class="notification-badge"><%= notifications.length %></span>
+                <% } %>
+            </li>
         </ul>
     </div>
-    <li class="notifications-icon">
-        <i class="fa-solid fa-bell" id="notification-bell"></i>
-        <% if (notifications.length > 0) { %>
-            <span class="notification-badge"><%= notifications.length %></span>
-        <% } %>
-    </li>
 </nav>
 <main>
     <div class="pop-posts-container">
