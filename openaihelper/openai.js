@@ -45,17 +45,17 @@ async function generateRecommendations(location, weather) {
     try {
         const userPrompt = `
 You are a helpful assistant that, given a user's location and the current weather conditions, recommends:
-1. Three restaurants (with name, address/location, opening time, closing time, and cuisine type).
-2. Three musical events or concerts (with event name, venue, date, and start time).
-3. Three sports events (with event name, venue, date, and start time).
+1. Three restaurants (with name, address/location, opening time, closing time, and cuisine type, best dishes on menu of that restaurant).
+2. Three musical events or concerts (with event name, venue, location, date, and start time, temperature on that day, and weather forecast in one line).
+3. Three sports events (with event name, venue, location, date, and start time, temperature on that day, and weather forecast in 1 line).
 
 User location: ${location}
 Current weather: ${weather.temperature}°C (code ${weather.weathercode})
 
 Please format your response as valid JSON with three keys:
-  - "restaurants": [ { … }, { … }, { … } ]
-  - "musicalEvents": [ { … }, { … }, { … } ]
-  - "sportsEvents": [ { … }, { … }, { … } ]
+  - "restaurants": [ { … }, { … }, { … }, { … } ]
+  - "musicalEvents": [ { … }, { … }, { … }, { … } ]
+  - "sportsEvents": [ { … }, { … }, { … }, { … } ]
 `;
 
         const response = await openai.chat.completions.create({
@@ -64,7 +64,7 @@ Please format your response as valid JSON with three keys:
                 {
                     role: "system",
                     content:
-                        "You are a helpful assistant that recommends restaurants, concerts, and sports events in JSON format.",
+                        "You are a helpful assistant that analyses the weather and recommends restaurants, concerts, and sports events in JSON format.",
                 },
                 { role: "user", content: userPrompt },
             ],

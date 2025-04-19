@@ -10,7 +10,6 @@
     <script src="https://kit.fontawesome.com/eabac940d1.js" crossorigin="anonymous"></script>
 </head>
 <body>
-<!-- NAVBAR -->
 <nav>…</nav>
 
 <main class="recommendations-container">
@@ -29,64 +28,90 @@
 </main>
 
 <script>
-    // Use browser geolocation instead of ipapi.co
     document.addEventListener('DOMContentLoaded', () => {
         if (!navigator.geolocation) {
             alert('Geolocation not supported');
             return;
         }
+
         navigator.geolocation.getCurrentPosition(async ({ coords }) => {
             const { latitude, longitude } = coords;
 
-            // weather API जैसा पहले
+            // 1) Fetch current weather
             const weatherRes = await fetch(
                 `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
             );
             const weatherData = await weatherRes.json();
             const weather = weatherData.current_weather;
 
-            // अब POST करो
-            console.log("→ Sending POST /api/recommendations with", { latitude, longitude, weather });
+            // 2) Fetch recommendations from your backend
             const recRes = await fetch('/api/recommendations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    location: `${latitude},${longitude}`,
-                    weather
-                })
+                body: JSON.stringify({ location: `${latitude},${longitude}`, weather })
             });
-
             if (!recRes.ok) {
-                console.error("API responded with status", recRes.status);
+                console.error('Recommendations API error', recRes.status);
                 return;
             }
 
-            const { recommendations } = await recRes.json();
-            console.log("🔔 Received recommendations:", recommendations);
+            // 3) Parse payload (handle stringified JSON)
+            const payload = await recRes.json();
+            let recommendations = payload.recommendations;
+            if (typeof recommendations === 'string') {
+                recommendations = JSON.parse(
+                    recommendations.replace(/```json|```/g, '').trim()
+                );
+            }
 
-            // फिर render करो
+            // 4) Render each section
             renderCards('restaurants',    recommendations.restaurants,    weather);
             renderCards('musicalEvents', recommendations.musicalEvents, weather);
             renderCards('sportsEvents',   recommendations.sportsEvents,   weather);
-        }, err => {
-            console.error('Geolocation error', err);
-        });
+        }, err => console.error('Geolocation error', err));
     });
 
     function renderCards(sectionId, items, weather) {
         const container = document.querySelector(`#${sectionId} .cards-container`);
+        container.innerHTML = '';  // clear old cards
+
+        if (!Array.isArray(items)) return;
+
         items.forEach(item => {
+            const isEvent = sectionId === 'musicalEvents' || sectionId === 'sportsEvents';
+
+            // Weather line
+            const weatherHTML = isEvent
+                ? `<p class="weather"><strong>Forecast:</strong> ${item.temperature}, ${item.weatherForecast}</p>`
+                : `<p class="weather"><strong>Current Weather:</strong> ${weather.temperature}°C</p>`;
+
+            // Opening vs. start time
+            const timeLine = item.openingTime
+                ? `<p><strong>Open:</strong> ${item.openingTime} - ${item.closingTime}</p>`
+                : `<p><strong>Start:</strong> ${item.date} @ ${item.startTime}</p>`;
+
+            // Location (for events)
+            const locationLine = item.location
+                ? `<p><strong>Location:</strong> ${item.location}</p>`
+                : '';
+
+            // Restaurant‐only lines
+            const cuisineLine    = sectionId === 'restaurants'
+                ? `<p><strong>Cuisine:</strong> ${item.cuisineType}</p>`
+                : '';
+            const bestDishesLine = sectionId === 'restaurants'
+                ? `<p><strong>Best Dishes:</strong> ${item.bestDishes}</p>`
+                : '';
+
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
           <h3>${item.name || item.eventName}</h3>
           <p>${item.address || item.venue}</p>
-          <p>${item.openingTime
-                ? `<strong>Open:</strong> ${item.openingTime} - ${item.closingTime}`
-                : `<strong>Start:</strong> ${item.date} @ ${item.startTime}`}
-          </p>
-          <p class="weather"><strong>Weather:</strong> ${weather.temperature}°C</p>
-          <p>${item.cuisine || ''}</p>
+          ${locationLine}
+          ${timeLine}
+          ${weatherHTML}
+          ${cuisineLine}
         `;
             container.appendChild(card);
         });
