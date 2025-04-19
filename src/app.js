@@ -1,304 +1,236 @@
+require("dotenv").config();
 const express = require("express");
-const axios = require('axios');
-// Elastic search client
-// const esClient = require("./elasticsearchClient");
+const axios = require("axios");
 const mongoose = require("mongoose");
-const app = express();
 const path = require("path");
-const ejs = require("ejs");
 const sessions = require("express-session");
-// const collection = require("./mongodb");
+const multer = require("multer");
+const ejs = require("ejs");
+
+const { generateReply, generateRecommendations } = require("../openaihelper/openai");
 const PosT = require("./postdb");
 const Profile = require("./profiledb");
-// At the top of app.js (after other require statements)
-const { generateReply } = require("../openaihelper/openai");
-// const conn = require("./connection")
-let imagename
-const multer = require("multer");
-const { send, title } = require("process");
-const { profile } = require("console");
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "./public/thumbnails");
-  },
-  filename: (req, file, cb) => {
-    // console.log(file);
+const { indexPost } = require("../elasticsearch/elasticsearchOperations");
 
+const app = express();
+let imagename;
+
+// Multer setup for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "./public/thumbnails"),
+  filename:   (req, file, cb) => {
     cb(null, file.originalname);
     imagename = file.originalname;
   },
 });
-const upload = multer({ storage: storage });
-let user;
+const upload = multer({ storage });
+
+// Middleware
 app.use(express.json());
-app.set("view engine", "ejs");
-app.use(express.static("public"));
 app.use(express.urlencoded({ extended: false }));
+app.use(express.static(path.join(__dirname, "../public")));
+app.set("view engine", "ejs");
 app.use(
-  sessions({
-    secret: "secret key",
-    saveUninitialized: true,
-    resave: false,
-  })
+    sessions({
+      secret: "secret key",
+      saveUninitialized: true,
+      resave: false,
+    })
 );
 
-const visitSchema = new mongoose.Schema({
-  visits: Number
-});
-
-const visits = mongoose.model("visits", visitSchema);
-
-app.get("/home", async (req, res) => {
-  if (!req.session.useremail) return res.redirect("/");
-
-  try {
-    const posts = await PosT.find().exec();
-    const sortedPosts = await PosT.find().sort({ like: "desc" }).exec();
-    const userProfile = await Profile.findOne({ email: req.session.useremail }).lean();
-
-    // Debugging log: Verify userProfile data
-    console.log("Profile Data:", JSON.stringify(userProfile, null, 2));
-
-    res.render("home", {
-      user: req.session.username,
-      posts,
-      date: Date.now(),
-      sposts: sortedPosts,
-      notifications: userProfile?.notifications || [], // Fallback to empty array
-    });
-  } catch (err) {
-    console.error("Route Error:", err);
-    res.render("home", {
-      user: req.session.username,
-      posts: [],
-      sposts: [],
-      notifications: [], // Explicit fallback
-    });
-  }
-});
-
-app.post("/clear-notifications", (req, res) => {
-  // Assuming `req.session.notifications` stores notifications
-  req.session.notifications = [];
-
-  // Respond with success
-  res.json({ success: true });
-});
-
+// ---------------------------------
+// Authentication & Home
+// ---------------------------------
 app.get("/", (req, res) => {
   res.render("login");
 });
 
-app.get("/logout", (req, res) => {
-  req.session.destroy();
-  imagename=null
-  res.redirect("/");
+// *BEFORE* your app.get("/:custom") catch‑all:
+app.get("/recommendations", (req, res) => {
+  if (!req.session.useremail) {
+    return res.redirect("/");
+  }
+  // pass in anything your template needs (e.g. user, notifications)
+  res.render("recommendations", {
+    user: req.session.username,
+    notifications: req.session.notifications || []
+  });
 });
-app.get("/signup",(req,res)=>{
-  res.redirect("/")
-})
+
+app.post("/api/recommendations", async (req, res) => {
+  // Debug log
+  console.log("◀️ POST /api/recommendations got:", req.body);
+
+  try {
+    const { location, weather } = req.body;
+    // अगर client से location नहीं आया तो fallback
+    const userLoc = location || (await axios.get("https://ipapi.co/json/")).data;
+    const locString = typeof userLoc === "string"
+        ? userLoc
+        : `${userLoc.latitude},${userLoc.longitude}`;
+
+    // OpenAI से recommendations जेनरेट करो
+    const recommendations = await generateRecommendations(locString, weather);
+    return res.json({ recommendations });
+  } catch (err) {
+    console.error("❌ /api/recommendations POST error:", err);
+    return res.status(500).json({ error: "Failed to fetch recommendations" });
+  }
+});
+
+
 app.post("/signup", async (req, res) => {
-
-  const userExists = await Profile.exists({ username:req.body.name });
-  // const loginData = {
-  //   name: req.body.name,
-  //   email: req.body.email,
-  //   password: req.body.password,
-  //   type: "user",
-  // };
-  if(!userExists){
-  const profileData = {
-    username: req.body.name,
-    email: req.body.email,
-    password: req.body.password,
-    type: "user",
-    fullname:req.body.name,
-    dp: "",
-    bio: "",
-    weblink: "",
-    facebook: "",
-    whatsapp: "",
-    twitter: "",
-    instagram: "",
-    phoneno: "",
-  };
-
-  // await collection.insertMany(loginData);
-  await Profile.insertMany(profileData)
-  req.session.useremail = req.body.email;
-  req.session.username = req.body.name;
-  res.redirect("home");
-}else{
-  res.send("<script>alert('user already exits');window.location.href = '/'</script>");
-
-}
+  const userExists = await Profile.exists({ username: req.body.name });
+  if (!userExists) {
+    await Profile.create({
+      username: req.body.name,
+      email: req.body.email,
+      password: req.body.password,
+      type: "user",
+      fullname: req.body.name,
+      dp: "",
+      bio: "",
+      weblink: "",
+      facebook: "",
+      whatsapp: "",
+      twitter: "",
+      instagram: "",
+      phoneno: "",
+      subscriptions: [],
+      notifications: [],
+    });
+    req.session.useremail = req.body.email;
+    req.session.username  = req.body.name;
+    return res.redirect("/home");
+  }
+  res.send("<script>alert('User already exists');window.location='/'</script>");
 });
 
 app.post("/login", async (req, res) => {
   try {
-    const check = await Profile.findOne({ email: req.body.email });
-    if (check.password === req.body.password) {
-      if (check.type === "admin") {
-        req.session.useremail = check.email;
-        req.session.username = check.username;
-        req.session.type = "admin"
-        res.redirect("admin")
-      } else {
-        visits.findOneAndUpdate(
-          { _id: "640cb99cd1ab2ecb248598b4" },
-          { $inc: { visits: 1 } },
-          (err) => {});
-        req.session.useremail = check.email;
-        req.session.username = check.username;
-        req.session.type = "user"
-        console.log(req.session.user);
-        res.redirect("home");
-      }
-    } else {
-      res.send("<script>alert('Wrong Password');window.location.href = '/'</script>");
+    const user = await Profile.findOne({ email: req.body.email });
+    if (!user || user.password !== req.body.password) {
+      throw new Error("Invalid credentials");
     }
-  } catch {
-    res.send("<script>alert('Wrong details');window.location.href = '/'</script>");
+    req.session.useremail = user.email;
+    req.session.username  = user.username;
+    req.session.type      = user.type;
+
+    if (user.type === "admin") {
+      return res.redirect("/admin");
+    } else {
+      // increment visit counter for non-admins
+      // (assuming a single visits document exists)
+      mongoose.model("visits").findByIdAndUpdate(
+          "640cb99cd1ab2ecb248598b4",
+          { $inc: { visits: 1 } },
+          () => {}
+      );
+      return res.redirect("/home");
+    }
+  } catch (err) {
+    return res.send("<script>alert('Wrong details');window.location='/'</script>");
   }
 });
 
-// --------------------------
-// Subscription Management Routes
-// --------------------------
+app.get("/logout", (req, res) => {
+  req.session.destroy();
+  imagename = null;
+  res.redirect("/");
+});
 
-// GET: Render a page where the user can subscribe/unsubscribe to topics
-app.get("/subscriptions", async (req, res) => {
+app.get("/home", async (req, res) => {
   if (!req.session.useremail) return res.redirect("/");
   try {
-    const userProfile = await Profile.findOne({ email: req.session.useremail });
-    res.render("subscriptions", { subscriptions: userProfile.subscriptions });
+    const posts   = await PosT.find().lean();
+    const sposts  = await PosT.find().sort({ like: -1 }).lean();
+    const profile = await Profile.findOne({ email: req.session.useremail }).lean();
+
+    res.render("home", {
+      user:          req.session.username,
+      posts,
+      sposts,
+      date:          Date.now(),
+      notifications: profile.notifications || [],
+    });
   } catch (err) {
     console.error(err);
-    res.send("Error retrieving subscriptions");
+    res.render("home", {
+      user:          req.session.username,
+      posts:         [],
+      sposts:        [],
+      date:          Date.now(),
+      notifications: [],
+    });
   }
 });
 
-// POST: Subscribe to a topic (from the search bar form)
+// ---------------------------------
+// Subscription Management
+// ---------------------------------
+app.get("/subscriptions", async (req, res) => {
+  if (!req.session.useremail) return res.redirect("/");
+  const profile = await Profile.findOne({ email: req.session.useremail }).lean();
+  res.render("subscriptions", { subscriptions: profile.subscriptions });
+});
+
 app.post("/subscriptions/subscribe", async (req, res) => {
   if (!req.session.useremail) return res.redirect("/");
   const topic = req.body.topic && req.body.topic.trim();
-  if (!topic) return res.redirect("/subscriptions");
-  try {
-// Use $addToSet to avoid duplicates
+  if (topic) {
     await Profile.updateOne(
         { email: req.session.useremail },
         { $addToSet: { subscriptions: topic } }
     );
-    res.redirect("/subscriptions");
-  } catch (err) {
-    console.error(err);
-    res.send("Error subscribing to the topic.");
   }
+  res.redirect("/subscriptions");
 });
 
-// POST: Unsubscribe from a topic
 app.post("/subscriptions/unsubscribe", async (req, res) => {
   if (!req.session.useremail) return res.redirect("/");
-  const topic = req.body.topic;
-  try {
-    await Profile.updateOne({ email: req.session.useremail }, { $pull: { subscriptions: topic } });
-    res.redirect("/subscriptions");
-  } catch (err) {
-    console.error(err);
-    res.send("Error unsubscribing from the topic.");
-  }
+  await Profile.updateOne(
+      { email: req.session.useremail },
+      { $pull: { subscriptions: req.body.topic } }
+  );
+  res.redirect("/subscriptions");
 });
 
-// --------------------------
-// New Post (Compose) Routes – Updated to Notify Subscribers
-// --------------------------
-
-// GET: Render the compose view (a form to submit a new post)
+// ---------------------------------
+// Compose & Notifications
+// ---------------------------------
 app.get("/compose", (req, res) => {
-  if (req.session.username) {
-    res.render("compose", { user: req.session.username });
-  } else {
-    // Redirect to login if user is not logged in
-    res.redirect("/");
-  }
+  if (!req.session.username) return res.redirect("/");
+  res.render("compose", { user: req.session.username });
 });
-
-// app.post("/compose", upload.single("image"), async (req, res) => {
-//   try {
-//     const postData = {
-//       author: req.session.username,
-//       title: req.body.postTitle,
-//       content: req.body.postBody,
-//       thumbnail: imagename,
-//       date: Date.now(),
-//       like: 0,
-//     };
-//     const newPost = await PosT.create(postData);
-//
-//     // Notify users subscribed to topics matching the post title
-//     const profiles = await Profile.find({
-//       subscriptions: { $exists: true, $not: { $size: 0 } },
-//     });
-//
-//     for (const profile of profiles) {
-//       for (const topic of profile.subscriptions) {
-//         if (newPost.title.toLowerCase().includes(topic.toLowerCase())) {
-//           const notification = {
-//             postId: newPost._id,
-//             topic,
-//             message: `A new post titled "${newPost.title}" about "${topic}" has been published.`,
-//             date: new Date(),
-//           };
-//           await Profile.updateOne(
-//               { _id: profile._id },
-//               { $push: { notifications: notification } }
-//           );
-//         }
-//       }
-//     }
-//
-//     res.redirect("/home");
-//   } catch (err) {
-//     console.error("Error creating post or sending notifications:", err);
-//     res.status(500).send("Error creating post or sending notifications.");
-//   }
-// });
-
-
-const { indexPost } = require("../elasticsearch/elasticsearchOperations");
 
 app.post("/compose", upload.single("image"), async (req, res) => {
   try {
     const postData = {
-      author: req.session.username,
-      title: req.body.postTitle,
-      content: req.body.postBody,
+      author:    req.session.username,
+      title:     req.body.postTitle,
+      content:   req.body.postBody,
       thumbnail: imagename,
-      date: Date.now(),
-      like: 0,
+      date:      Date.now(),
+      like:      0,
     };
-    // Save the post in MongoDB (or your primary datastore)
     const newPost = await PosT.create(postData);
-    console.log("New post created with id:", newPost._id.toString());
-    // Now index the new post in Elasticsearch
     await indexPost(newPost);
 
-    // Notify users subscribed to topics matching the post title
+    // Notify topic subscribers
     const profiles = await Profile.find({
       subscriptions: { $exists: true, $not: { $size: 0 } },
     });
-
-    for (const profile of profiles) {
-      for (const topic of profile.subscriptions) {
+    for (const prof of profiles) {
+      for (const topic of prof.subscriptions) {
         if (newPost.title.toLowerCase().includes(topic.toLowerCase())) {
           const notification = {
-            postId: newPost._id,
+            postId: prof._id,
             topic,
             message: `A new post titled "${newPost.title}" about "${topic}" has been published.`,
             date: new Date(),
           };
           await Profile.updateOne(
-              { _id: profile._id },
+              { _id: prof._id },
               { $push: { notifications: notification } }
           );
         }
@@ -307,495 +239,314 @@ app.post("/compose", upload.single("image"), async (req, res) => {
 
     res.redirect("/home");
   } catch (err) {
-    console.error("Error creating post, indexing, or sending notifications:", err);
-    res.status(500).send("Error creating post, indexing, or sending notifications.");
+    console.error(err);
+    res.status(500).send("Error creating post or sending notifications.");
   }
+});
+
+// ---------------------------------
+// Update Post
+// ---------------------------------
+app.get("/update/:custom", (req, res) => {
+  if (!req.session.username) return res.redirect("/");
+  PosT.findById(req.params.custom, (err, post) => {
+    if (err || !post) return res.render("notfound");
+    if (req.session.username === post.author || req.session.type === "admin") {
+      return res.render("edit-post", {
+        user: req.session.username,
+        post,
+      });
+    }
+    res.render("notfound");
+  });
 });
 
 app.post("/update/:custom", upload.single("image"), async (req, res) => {
   try {
-    // Update the post in MongoDB
-    const updatedPost = await PosT.findByIdAndUpdate(
-        req.params.custom,
-        {
-          title: req.body.postTitle,
-          content: req.body.postBody,
-          thumbnail: imagename,
-        },
-        { new: true }
-    );
-    if (!updatedPost) {
-      return res.status(404).send("Post not found");
-    }
-
-    // Update the post in ElasticSearch
-    await esClient.update({
-      index: 'posts',
-      id: updatedPost._id.toString(),
-      body: {
-        doc: {
-          title: updatedPost.title,
-          content: updatedPost.content,
-          thumbnail: updatedPost.thumbnail,
-          // Include any fields you need to update
-        }
-      }
+    await PosT.findByIdAndUpdate(req.params.custom, {
+      title:     req.body.postTitle,
+      content:   req.body.postBody,
+      thumbnail: imagename,
     });
-    res.redirect("/posts/" + req.params.custom);
+    res.redirect(`/posts/${req.params.custom}`);
   } catch (err) {
-    console.error("Update error:", err);
+    console.error(err);
     res.status(500).send("Error updating post");
   }
 });
 
-
-// app.get("/posts/:custom", (req, res) => {
-//    if(req.session.username){
-//   PosT.find((err, results) => {
-//     res.render("posts", {
-//       user: req.session.username,
-//       posts: results,
-//       date: Date.now(),
-//       id: req.params.custom,
-//     });
-//   });
-// }else{
-//   res.render("notfound")
-// }
-// });
-
-// Add to existing posts route
-app.get("/posts/:id", async (req, res) => {
-  try {
-    if (!req.session.username) return res.render("notfound");
-
-    const post = await PosT.findById(req.params.id).lean();
-    if (!post) return res.render("notfound");
-
-    const allPosts = await PosT.find().lean();
-
-    res.render("posts", {
-      user: req.session.username,
-      post: post,         // Single post document
-      posts: allPosts,    // All posts for related articles
-      date: Date.now()
+// ---------------------------------
+// Delete Post
+// ---------------------------------
+app.get("/delete/:custom", (req, res) => {
+  if (!req.session.username) return res.redirect("/");
+  PosT.findById(req.params.custom, (err, post) => {
+    if (
+        err ||
+        !post ||
+        (req.session.username !== post.author && req.session.type !== "admin")
+    ) {
+      return res.render("notfound");
+    }
+    PosT.findByIdAndRemove(req.params.custom, () => {
+      res.redirect(req.session.type === "admin" ? "/admin" : "/home");
     });
-  } catch (err) {
-    console.error("Post retrieval error:", err);
-    res.render("notfound");
-  }
+  });
 });
 
-// New comment submission route
-app.post("/posts/:id/comment", (req, res) => {
-  if(!req.session.username) return res.redirect("/");
+// ---------------------------------
+// View Single Post & Comment
+// ---------------------------------
+app.get("/posts/:id", async (req, res) => {
+  if (!req.session.username) return res.render("notfound");
+  const post     = await PosT.findById(req.params.id).lean();
+  const allPosts = await PosT.find().lean();
+  if (!post) return res.render("notfound");
+  res.render("posts", {
+    user: req.session.username,
+    post,
+    posts: allPosts,
+    date: Date.now(),
+  });
+});
 
+app.post("/posts/:custom", async (req, res) => {
+  // Like/unlike logic
+  const id     = req.params.custom;
+  const userId = req.session.username;
+  const post   = await PosT.findById(id);
+  if (!post) return res.redirect(`/posts/${id}`);
+
+  if (post.likedby.includes(userId)) {
+    await PosT.findByIdAndUpdate(id, {
+      $pull: { likedby: userId },
+      $inc:  { like: -1 },
+    });
+  } else {
+    await PosT.findByIdAndUpdate(id, {
+      $push: { likedby: userId },
+      $inc:  { like: 1 },
+    });
+  }
+  res.redirect(`/posts/${id}`);
+});
+
+app.post("/posts/:id/comment", (req, res) => {
+  if (!req.session.username) return res.redirect("/");
   const newComment = {
     user: req.session.username,
     text: req.body.commentText,
-    date: new Date()
+    date: new Date(),
   };
-
   PosT.findByIdAndUpdate(
       req.params.id,
       { $push: { comments: newComment } },
-      { new: true },
-      (err, updatedPost) => {
-        if(err) {
-          console.error("Comment error:", err);
-          return res.status(500).send("Error saving comment");
-        }
-        res.redirect(`/posts/${req.params.id}`);
-      }
+      () => res.redirect(`/posts/${req.params.id}`)
   );
 });
 
-
-app.post("/posts/:custom", (req, res) => {
-  const id = req.params.custom;
-  var userid = req.session.username;
-
-  PosT.findOne({ _id: { $eq: id } }, (err, result) => {
-    if (result.likedby.includes(userid)) {
-      PosT.findOneAndUpdate(
-        { _id: id },
-        { $pull: { likedby: userid } },
-        { new: true }
-      ).exec((err, result) => {
-        if (err) {
-          console.log(err);
-        } else {
-          console.log("user disliked");
-
-          PosT.findOneAndUpdate({ _id: id }, { $inc: { like: -1 } }, (err) => {
-            if (err) {
-              console.log(err);
-            } else {
-              console.log("updated");
-            }
-          });
-        }
-      });
-    } else {
-      PosT.findOneAndUpdate(
-        { _id: id },
-        { $push: { likedby: userid } },
-        { new: true }
-      ).exec((err, result) => {
-        if (err) {
-          console.log(err);
-        } else {
-          console.log("user liked");
-          PosT.findOneAndUpdate({ _id: id }, { $inc: { like: 1 } }, (err) => {
-            if (err) {
-              console.log(err);
-            } else {
-              console.log("updated");
-            }
-          }); //
-        }
-      });
-    }
-    if (err) {
-      console.log(err);
-    }
+// ---------------------------------
+// Profile & Edit Profile
+// ---------------------------------
+app.get("/profile/:customRoute", async (req, res) => {
+  if (!req.session.username) return res.redirect("/");
+  const posts = await PosT.find({ author: req.params.customRoute }).lean();
+  const userdata = await Profile.findOne({ username: req.params.customRoute }).lean();
+  res.render("profile", {
+    username: req.session.username,
+    posts,
+    userdata,
+    date: Date.now(),
   });
 });
 
-app.get("/update/:custom",(req,res)=>{
-   if(req.session.username){
-  PosT.findById(req.params.custom,(err,result)=>{
-    console.log(result);
-     if(req.session.username===result.author||req.session.username==="admin"){
-    res.render("edit-post",{user:req.session.username,post:result})
-     }else{
-      res.render("notfound")
-     }
-  })
-}
-})
-app.post("/update/:custom", upload.single("image"), async (req, res) => {
-  PosT.findByIdAndUpdate(
-    req.params.custom,
-    {
-      title:req.body.postTitle,
-      content: req.body.postBody,
-      thumbnail: imagename,
-    },
-    (err) => {
-      if (err) {
-        console.log(err);
-      }
-    }
-  );
-  res.redirect("/posts/" + req.params.custom);
-});
-
-app.get("/delete/:custom", (req, res) => {
- if(req.session.username){
-  PosT.findById(req.params.custom,(err,results)=>{
-     if (
-       req.session.username === results.author ||
-       req.session.type === "admin"
-     ){
-       PosT.findByIdAndRemove(req.params.custom, (err) => {
-         console.log("deleted");
-         if (req.session.username === "admin") {
-           res.redirect("/admin");
-         } else {
-           res.redirect("/home");
-         }
-       });
-      }else{
-        res.render("notfound")
-      }
-  })
-
-}else{
-  res.redirect("/")
-}
-});
-
-
-app.get("/profile/:customRoute", (req, res) => {
-
-  if(req.session.username){
-  const customRoute = req.params.customRoute;
-// Profile.findOne({username:req.session.username},(err,result)=>{
-//   if(err){
-//     console.log(err);
-//   }else{
-//   console.log(result.dp);
-//   }
-// })
-
-  PosT.find({ author: customRoute}, (err, result)=> {
-    if (err){
-        console.log(err);
-
-    }
-    else{
-        req.session.userposts=result;
-        Profile.findOne({username:customRoute},(err,results)=>{
-          res.render("profile", {
-          username: req.session.username,
-          posts: req.session.userposts,
-          userdata:results,
-          date: Date.now(),
-        });
-        // console.log(results);
-        })
-
-
-    }})
-    // console.log(req.session.userposts);
-  }else{
-    res.redirect("/")
-  }
-});
-
-
-app.get("/editprofile/:custom",(req,res)=>{
-  if(req.session.username){
-     Profile.findOne({username:req.params.custom},(err,results)=>{
-     if (req.session.username === results.username){
-  Profile.findOne({username:req.session.username},(err,result)=>{
-    res.render("edit-profile",{username:req.session.username,email:req.session.useremail,userdata:result})
-  })}else{
-    res.render("notfound")
-  }})
-}else{
-  res.redirect("/")
-}
-})
-
-
-app.post("/editprofile/:custom",upload.single("image"), async (req, res) => {
-  const custom=req.params.custom
-
-
-// console.log(imagename);
-  Profile.findOneAndUpdate(
-    { username: req.session.username },
-    {
-      fullname: req.body.fullname,
-      email: req.session.useremail,
-      dp: imagename,
-      bio: req.body.bio,
-      weblink: req.body.weblink,
-      facebook: req.body.fb,
-      whatsapp: req.body.wa,
-      twitter: req.body.tw,
-      instagram: req.body.insta,
-      phoneno: req.body.phno,
-    },
-    (err) => {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log("updated");
-      }
-    }
-  );
-
-
-  res.redirect("/profile/"+custom);
-});
-
-app.get("/admin",(req,res)=>{
-  if(req.session.type==="admin"){
-  // collection.find((err,logins)=>{
-    Profile.find((err,profiles)=>{
-      PosT.find((err,posts)=>{
-        visits.find((err,visits)=>{
-         res.render("admin",{profiles:profiles,posts:posts,visits:visits,username:req.session.username});
-        })
-      })
-    })
-  }else{
-    res.redirect("/")
-  }
-  // })
-
-})
-
-app.get("/removeuser/:custom", (req, res) => {
-  if(req.session.type==="admin"){
-  Profile.findByIdAndRemove(req.params.custom, (err) => {
-    PosT.deleteMany({author:{$eq:req.query.user}},(err)=>{
-      if(err){
-        console.log(err);
-      }else{
-        res.redirect("/admin")
-      }
-    })
+app.get("/editprofile/:custom", async (req, res) => {
+  if (!req.session.username) return res.redirect("/");
+  const userdata = await Profile.findOne({ username: req.params.custom }).lean();
+  if (req.session.username !== userdata.username) return res.render("notfound");
+  res.render("edit-profile", {
+    username: req.session.username,
+    email:    req.session.useremail,
+    userdata,
   });
-}else{
-  res.render("notfound")
-}
 });
 
+app.post("/editprofile/:custom", upload.single("image"), async (req, res) => {
+  await Profile.findOneAndUpdate(
+      { username: req.session.username },
+      {
+        fullname: req.body.fullname,
+        dp:       imagename,
+        bio:      req.body.bio,
+        weblink:  req.body.weblink,
+        facebook: req.body.fb,
+        whatsapp: req.body.wa,
+        twitter:  req.body.tw,
+        instagram:req.body.insta,
+        phoneno:  req.body.phno,
+      }
+  );
+  res.redirect(`/profile/${req.params.custom}`);
+});
 
+// ---------------------------------
+// Admin Dashboard & User Removal
+// ---------------------------------
+app.get("/admin", async (req, res) => {
+  if (req.session.type !== "admin") return res.redirect("/");
+  const profiles = await Profile.find().lean();
+  const posts    = await PosT.find().lean();
+  const visits   = await mongoose.model("visits").find().lean();
+  res.render("admin", {
+    profiles,
+    posts,
+    visits,
+    username: req.session.username,
+  });
+});
 
+app.get("/removeuser/:custom", async (req, res) => {
+  if (req.session.type !== "admin") return res.render("notfound");
+  await Profile.findByIdAndRemove(req.params.custom);
+  await PosT.deleteMany({ author: req.query.user });
+  res.redirect("/admin");
+});
 
-app.post("/search",async(req,res)=>{
-  let payload=req.body.payload.trim()
-  // console.log(payload);
-  let search=await PosT.find({title:{$regex: new RegExp('^'+payload+'.*','i')}}).exec();
-  search = search.slice(0,10)
-  // console.log(search);
-  res.send({payload:search})
+// ---------------------------------
+// Search
+// ---------------------------------
+app.post("/search", async (req, res) => {
+  const payload = req.body.payload.trim();
+  let results   = await PosT.find({
+    title: { $regex: new RegExp("^" + payload + ".*", "i") },
+  })
+      .lean()
+      .exec();
+  results = results.slice(0, 10);
+  res.json({ payload: results });
+});
 
-})
-
-// // Route to generate an AI reply for a post (you can adjust the URL as needed)
-// app.post("/generate-reply", async (req, res) => {
-//   // Check if user is logged in
-//   if (!req.session.username) return res.status(401).json({ error: "Not logged in" });
-//
-//   const { postId, useAI } = req.body;
-//
-//   // Make sure the toggle (useAI) is enabled
-//   if (!useAI) {
-//     return res.status(400).json({ error: "AI reply generation not enabled" });
-//   }
-//
-//   try {
-//     // Find the post by id
-//     const post = await PosT.findById(postId).lean();
-//     if (!post) return res.status(404).json({ error: "Post not found" });
-//
-//     // Create a prompt based on the post content or title.
-//     const prompt = `Generate a thoughtful reply for the post titled "${post.title}" with content: ${post.content}`;
-//
-//     // Call the OpenAI API to generate a reply
-//     const aiReply = await generateReply(prompt);
-//
-//     // Option: Save the AI reply as a comment in the post's comments array.
-//     const newComment = {
-//       user: "AI Assistant",
-//       text: aiReply,
-//       date: new Date(),
-//     };
-//
-//     await PosT.findByIdAndUpdate(postId, { $push: { comments: newComment } });
-//
-//     // Return the generated reply (and optionally the updated comment list)
-//     res.json({ success: true, reply: aiReply });
-//   } catch (err) {
-//     console.error("Error generating AI reply:", err);
-//     res.status(500).json({ error: "Error generating reply" });
-//   }
-// });
-//
-
-
+// ---------------------------------
+// AI Reply Generation
+// ---------------------------------
 app.post("/generate-reply", async (req, res) => {
   if (!req.session.username) return res.status(401).json({ error: "Not logged in" });
-
   const { postId, useAI, prompt } = req.body;
+  if (!useAI) return res.status(400).json({ error: "AI not enabled" });
 
-  if (!useAI) {
-    return res.status(400).json({ error: "AI reply generation not enabled" });
-  }
+  const post = await PosT.findById(postId).lean();
+  if (!post) return res.status(404).json({ error: "Post not found" });
+
+  const promptToSend =
+      prompt && prompt.length > 0
+          ? prompt
+          : `Generate a thoughtful reply for the post titled "${post.title}" with content: ${post.content}`;
 
   try {
-    // Find the post by id
-    const post = await PosT.findById(postId).lean();
-    if (!post) return res.status(404).json({ error: "Post not found" });
-
-    // Use the prompt provided by the user or fall back to a default prompt
-    const promptToSend = prompt && prompt.length > 0 ? prompt :
-        `Generate a thoughtful reply for the post titled "${post.title}" with content: ${post.content}`;
-
-    // Call the OpenAI API to generate a reply
     const aiReply = await generateReply(promptToSend);
-
-    // Save the AI reply as a comment in the post's comments array
-    const newComment = {
-      user: "AI Assistant",
-      text: aiReply,
-      date: new Date(),
-    };
-
-    await PosT.findByIdAndUpdate(postId, { $push: { comments: newComment } });
-
-    // Return the generated reply in the JSON response
+    await PosT.findByIdAndUpdate(postId, {
+      $push: { comments: { user: "AI Assistant", text: aiReply, date: new Date() } },
+    });
     res.json({ success: true, reply: aiReply });
   } catch (err) {
-    console.error("Error generating AI reply:", err);
+    console.error(err);
     res.status(500).json({ error: "Error generating reply" });
   }
 });
 
-
-// AI Agent GET route: renders the AI Agent page
+// ---------------------------------
+// AI Agent Page
+// ---------------------------------
 app.get("/ai-agent", (req, res) => {
   if (!req.session.useremail) return res.redirect("/");
   res.render("ai-agent", { user: req.session.username });
 });
 
-// AI Agent POST route: processes the user's query and returns recommendations
 app.post("/ai-agent", async (req, res) => {
-  const userQuery = req.body.query;
-
   try {
-    // Example steps to generate a recommendation:
-    // 1. Get user's location (you might use req.ip or a client-side geolocation API)
-    //    For demonstration, we use a placeholder:
-    const locationData = await axios.get('https://ipapi.co/json/');
-    const userLocation = locationData.data.city || 'your area';
+    const locRes = await axios.get("https://ipapi.co/json/");
+    const userLocation = locRes.data.city || locRes.data.region || "your area";
 
-    // 2. Get current weather conditions (example using Open-Meteo or OpenWeatherMap)
-    //    Replace the URL and parameters with actual API calls and include your API key if needed.
-    const weatherResponse = await axios.get('https://api.open-meteo.com/v1/forecast', {
+    const weatherRes = await axios.get("https://api.open-meteo.com/v1/forecast", {
       params: {
-        latitude: locationData.data.latitude,
-        longitude: locationData.data.longitude,
-        current_weather: true
-      }
+        latitude:       locRes.data.latitude,
+        longitude:      locRes.data.longitude,
+        current_weather: true,
+      },
     });
-    const weather = weatherResponse.data.current_weather;
+    const weather = weatherRes.data.current_weather;
+    const events  = "City Marathon at 3 PM";
 
-    // 3. Get real-time event information (e.g., sports events) using a service like SerpAPI.
-    //    Here we use a placeholder response.
-    const events = "Local sports event: City Marathon at 3 PM";
-
-    // 4. Ask OpenAI for an activity recommendation based on the above data.
-    //    Make sure to have your API key in an environment variable or configuration.
-    //    This is a placeholder call—you need to integrate the actual OpenAI API.
-    const openAiResponse = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
+    const aiRes = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
         {
           model: "gpt-3.5-turbo",
           messages: [
-            { role: "system", content: "You are an assistant that recommends activities based on weather, local events, and user location." },
-            { role: "user", content: `I am in ${userLocation}. The current weather is ${weather.temperature}°C with ${weather.weathercode}. I also heard about this event: ${events}. What activities would you recommend?` }
-          ]
+            {
+              role: "system",
+              content:
+                  "You are an assistant that recommends activities based on weather, local events, and user location.",
+            },
+            {
+              role: "user",
+              content: `I am in ${userLocation}. The current weather is ${weather.temperature}°C (code ${weather.weathercode}). I also heard about: ${events}. What do you recommend?`,
+            },
+          ],
         },
         {
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`  // Replace with your actual OpenAI API key
-          }
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
         }
     );
 
-    const recommendation = openAiResponse.data.choices[0].message.content;
-    res.json({ recommendation });
-  } catch (error) {
-    console.error("Error in AI Agent:", error.message);
-    res.status(500).json({ recommendation: "Sorry, we couldn't fetch recommendations at this time." });
+    res.json({ recommendation: aiRes.data.choices[0].message.content });
+  } catch (err) {
+    console.error("AI Agent error:", err);
+    res.status(500).json({ recommendation: "Sorry, couldn't fetch recommendations." });
   }
 });
 
-app.get("/:custom", (req, res) => {
-  res.render("notfound")
+// ---------------------------------
+// Recommendations Page & API
+// ---------------------------------
+app.get("/recommendations", (req, res) => {
+  if (!req.session.useremail) return res.redirect("/");
+  res.render("recommendations", { user: req.session.username });
 });
-app.get("/:custom/:custom2",(req,res)=>{
-  res.render("notfound")
-})
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("server started at port 3000");
+app.get("/api/recommendations", async (req, res) => {
+  if (!req.session.useremail) return res.status(401).json({ error: "Not logged in" });
+
+  try {
+    const locRes = await axios.get("https://ipapi.co/json/");
+    const userLocation = locRes.data.city || locRes.data.region || "your area";
+
+    const weatherRes = await axios.get("https://api.open-meteo.com/v1/forecast", {
+      params: {
+        latitude:       locRes.data.latitude,
+        longitude:      locRes.data.longitude,
+        current_weather: true,
+      },
+    });
+    const weather = weatherRes.data.current_weather;
+
+    const recommendations = await generateRecommendations(userLocation, weather);
+    res.json({ recommendations });
+  } catch (err) {
+    console.error("Recommendations API error:", err);
+    res.status(500).json({ error: "Failed to fetch recommendations" });
+  }
 });
+
+// ---------------------------------
+// Fallback (404)
+// ---------------------------------
+app.get("/:custom",    (req, res) => res.render("notfound"));
+app.get("/:custom/:c2", (req, res) => res.render("notfound"));
+
+// ---------------------------------
+// Start Server
+// ---------------------------------
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
