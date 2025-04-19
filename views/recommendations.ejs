@@ -17,20 +17,26 @@
         <h2>Restaurants</h2>
         <div class="cards-container"></div>
     </section>
+
     <section id="musicalEvents" class="section">
         <h2>Musical Events</h2>
         <div class="cards-container"></div>
     </section>
+
     <section id="sportsEvents" class="section">
         <h2>Sports Events</h2>
         <div class="cards-container"></div>
     </section>
+
+    <section id="mapSection" class="section">
+        <h2>Map</h2>
+        <div class="cards-container">
+            <div id="map" class="card" style="width:100%; height:600px;"></div>
+        </div>
+    </section>
 </main>
 
-<!-- Map container -->
-<div id="map" style="width:100%; height:400px; margin-top:2rem;"></div>
-
-<!-- Google Maps JS (replace YOUR_API_KEY) -->
+<!-- Google Maps JS: replace YOUR_API_KEY -->
 <script
         async
         defer
@@ -38,7 +44,6 @@
 </script>
 
 <script>
-    // Globals
     let userPosition = null;
     let recommendations = null;
     let map, allBounds, geocoder;
@@ -52,14 +57,14 @@
             const { latitude, longitude } = coords;
             userPosition = { lat: latitude, lng: longitude };
 
-            // Fetch current weather
+            // 1) Fetch current weather
             const weatherRes = await fetch(
                 `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
             );
             const weatherData = await weatherRes.json();
             const weather = weatherData.current_weather;
 
-            // Fetch recommendations
+            // 2) Fetch recommendations
             const recRes = await fetch('/api/recommendations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -70,7 +75,7 @@
                 return;
             }
 
-            // Parse payload
+            // 3) Parse payload
             const payload = await recRes.json();
             recommendations = payload.recommendations;
             if (typeof recommendations === 'string') {
@@ -80,19 +85,21 @@
                     );
                 } catch (e) {
                     console.error('Failed to parse recommendations JSON:', e);
-                    recommendations = { restaurants: [], musicalEvents: [], sportsEvents: [] };
+                    recommendations = {
+                        restaurants: [],
+                        musicalEvents: [],
+                        sportsEvents: []
+                    };
                 }
             }
 
-            // Render UI
+            // 4) Render cards
             renderCards('restaurants',    recommendations.restaurants,    weather);
             renderCards('musicalEvents', recommendations.musicalEvents, weather);
             renderCards('sportsEvents',   recommendations.sportsEvents,   weather);
 
-            // If Maps API already loaded, initialize map now
-            if (window.google && window.google.maps) {
-                initMap();
-            }
+            // 5) If Maps is already ready, draw it
+            if (window.google && window.google.maps) initMap();
         }, err => console.error('Geolocation error', err));
     });
 
@@ -111,10 +118,6 @@
                 ? `<p><strong>Open:</strong> ${item.openingTime} - ${item.closingTime}</p>`
                 : `<p><strong>Start:</strong> ${item.date} @ ${item.startTime}</p>`;
 
-            const locationLine = item.location
-                ? `<p><strong>Location:</strong> ${item.location}</p>`
-                : '';
-
             const cuisineLine    = sectionId === 'restaurants'
                 ? `<p><strong>Cuisine:</strong> ${item.cuisineType}</p>` : '';
             const bestDishesLine = sectionId === 'restaurants'
@@ -125,7 +128,6 @@
             card.innerHTML = `
           <h3>${item.name || item.eventName}</h3>
           <p>${item.address || item.venue}</p>
-          ${locationLine}
           ${timeLine}
           ${weatherHTML}
           ${cuisineLine}
@@ -135,10 +137,9 @@
         });
     }
 
-    // Called by Google Maps API once loaded
+    // Called by Maps API when loaded
     function initMap() {
         if (!userPosition) return;
-
         allBounds = new google.maps.LatLngBounds();
         geocoder = new google.maps.Geocoder();
         map = new google.maps.Map(document.getElementById('map'), {
@@ -162,30 +163,40 @@
             sports:     'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
         };
 
-        // 3) Drop all markers with throttling
+        // 3) Build address/icon list
         const allItems = [
-            ...recommendations.restaurants   .map(r => [r.address   + ', Chicago, IL, USA', icons.restaurant]),
-            ...recommendations.musicalEvents .map(e => [`${e.venue}, ${e.location}, USA`,      icons.music]),
-            ...recommendations.sportsEvents  .map(e => [`${e.venue}, ${e.location}, USA`,      icons.sports])
+            ...recommendations.restaurants  .map(r => [r.address + ', Chicago, IL, USA',  icons.restaurant]),
+            ...recommendations.musicalEvents.map(e => [e.venue + ', Chicago, IL, USA',   icons.music]),
+            ...recommendations.sportsEvents .map(e => [e.venue + ', Chicago, IL, USA',   icons.sports])
         ];
 
+        // 4) Throttled geocoding with jitter
         allItems.forEach(([addr, icon], i) => {
-            setTimeout(() => dropMarker(addr, icon), i * 200);
+            setTimeout(() => dropMarkerWithJitter(addr, icon), i * 500);
         });
     }
 
-    // Geocode & drop a single marker
-    function dropMarker(address, iconUrl) {
-        console.log('Geocoding:', address);
+    // Geocode + place marker with slight random offset
+    function dropMarkerWithJitter(address, iconUrl) {
         geocoder.geocode({ address }, (results, status) => {
             if (status === 'OK' && results[0]) {
-                const pos = results[0].geometry.location;
-                new google.maps.Marker({ position: pos, map, icon: iconUrl });
+                const loc = results[0].geometry.location;
+                const baseLat = loc.lat();
+                const baseLng = loc.lng();
+                // jitter up to ±0.0005 degrees (~50m)
+                const jitterLat = (Math.random() - 0.5) * 0.001;
+                const jitterLng = (Math.random() - 0.5) * 0.001;
+                const pos = { lat: baseLat + jitterLat, lng: baseLng + jitterLng };
+
+                new google.maps.Marker({
+                    position: pos,
+                    map,
+                    icon: iconUrl
+                });
                 allBounds.extend(pos);
                 map.fitBounds(allBounds);
-                console.log(' → success:', address);
             } else {
-                console.warn(' ✖ geocode failed for', address, status);
+                console.warn('Geocode failed for', address, status);
             }
         });
     }
