@@ -27,24 +27,39 @@
     </section>
 </main>
 
+<!-- Map container -->
+<div id="map" style="width:100%; height:400px; margin-top:2rem;"></div>
+
+<!-- Google Maps JS (replace YOUR_API_KEY) -->
+<script
+        async
+        defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBx0nujpBSNOmBAMd3YxVlUidNSX6titLg&callback=initMap">
+</script>
+
 <script>
+    // Globals
+    let userPosition = null;
+    let recommendations = null;
+    let map, allBounds, geocoder;
+
     document.addEventListener('DOMContentLoaded', () => {
         if (!navigator.geolocation) {
             alert('Geolocation not supported');
             return;
         }
-
         navigator.geolocation.getCurrentPosition(async ({ coords }) => {
             const { latitude, longitude } = coords;
+            userPosition = { lat: latitude, lng: longitude };
 
-            // 1) Fetch current weather
+            // Fetch current weather
             const weatherRes = await fetch(
                 `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
             );
             const weatherData = await weatherRes.json();
             const weather = weatherData.current_weather;
 
-            // 2) Fetch recommendations from your backend
+            // Fetch recommendations
             const recRes = await fetch('/api/recommendations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -55,53 +70,55 @@
                 return;
             }
 
-            // 3) Parse payload (handle stringified JSON)
+            // Parse payload
             const payload = await recRes.json();
-            let recommendations = payload.recommendations;
+            recommendations = payload.recommendations;
             if (typeof recommendations === 'string') {
-                recommendations = JSON.parse(
-                    recommendations.replace(/```json|```/g, '').trim()
-                );
+                try {
+                    recommendations = JSON.parse(
+                        recommendations.replace(/```json|```/g, '').trim()
+                    );
+                } catch (e) {
+                    console.error('Failed to parse recommendations JSON:', e);
+                    recommendations = { restaurants: [], musicalEvents: [], sportsEvents: [] };
+                }
             }
 
-            // 4) Render each section
+            // Render UI
             renderCards('restaurants',    recommendations.restaurants,    weather);
             renderCards('musicalEvents', recommendations.musicalEvents, weather);
             renderCards('sportsEvents',   recommendations.sportsEvents,   weather);
+
+            // If Maps API already loaded, initialize map now
+            if (window.google && window.google.maps) {
+                initMap();
+            }
         }, err => console.error('Geolocation error', err));
     });
 
     function renderCards(sectionId, items, weather) {
         const container = document.querySelector(`#${sectionId} .cards-container`);
-        container.innerHTML = '';  // clear old cards
-
+        container.innerHTML = '';
         if (!Array.isArray(items)) return;
 
         items.forEach(item => {
             const isEvent = sectionId === 'musicalEvents' || sectionId === 'sportsEvents';
-
-            // Weather line
             const weatherHTML = isEvent
                 ? `<p class="weather"><strong>Forecast:</strong> ${item.temperature}, ${item.weatherForecast}</p>`
                 : `<p class="weather"><strong>Current Weather:</strong> ${weather.temperature}°C</p>`;
 
-            // Opening vs. start time
             const timeLine = item.openingTime
                 ? `<p><strong>Open:</strong> ${item.openingTime} - ${item.closingTime}</p>`
                 : `<p><strong>Start:</strong> ${item.date} @ ${item.startTime}</p>`;
 
-            // Location (for events)
             const locationLine = item.location
                 ? `<p><strong>Location:</strong> ${item.location}</p>`
                 : '';
 
-            // Restaurant‐only lines
             const cuisineLine    = sectionId === 'restaurants'
-                ? `<p><strong>Cuisine:</strong> ${item.cuisineType}</p>`
-                : '';
+                ? `<p><strong>Cuisine:</strong> ${item.cuisineType}</p>` : '';
             const bestDishesLine = sectionId === 'restaurants'
-                ? `<p><strong>Best Dishes:</strong> ${item.bestDishes}</p>`
-                : '';
+                ? `<p><strong>Best Dishes:</strong> ${item.bestDishes || ''}</p>` : '';
 
             const card = document.createElement('div');
             card.className = 'card';
@@ -112,8 +129,64 @@
           ${timeLine}
           ${weatherHTML}
           ${cuisineLine}
+          ${bestDishesLine}
         `;
             container.appendChild(card);
+        });
+    }
+
+    // Called by Google Maps API once loaded
+    function initMap() {
+        if (!userPosition) return;
+
+        allBounds = new google.maps.LatLngBounds();
+        geocoder = new google.maps.Geocoder();
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: userPosition,
+            zoom: 13,
+        });
+
+        // 1) User marker (green)
+        new google.maps.Marker({
+            position: userPosition,
+            map,
+            title: 'You are here',
+            icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        });
+        allBounds.extend(userPosition);
+
+        // 2) Icon URLs
+        const icons = {
+            restaurant: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            music:      'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            sports:     'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+        };
+
+        // 3) Drop all markers with throttling
+        const allItems = [
+            ...recommendations.restaurants   .map(r => [r.address   + ', Chicago, IL, USA', icons.restaurant]),
+            ...recommendations.musicalEvents .map(e => [`${e.venue}, ${e.location}, USA`,      icons.music]),
+            ...recommendations.sportsEvents  .map(e => [`${e.venue}, ${e.location}, USA`,      icons.sports])
+        ];
+
+        allItems.forEach(([addr, icon], i) => {
+            setTimeout(() => dropMarker(addr, icon), i * 200);
+        });
+    }
+
+    // Geocode & drop a single marker
+    function dropMarker(address, iconUrl) {
+        console.log('Geocoding:', address);
+        geocoder.geocode({ address }, (results, status) => {
+            if (status === 'OK' && results[0]) {
+                const pos = results[0].geometry.location;
+                new google.maps.Marker({ position: pos, map, icon: iconUrl });
+                allBounds.extend(pos);
+                map.fitBounds(allBounds);
+                console.log(' → success:', address);
+            } else {
+                console.warn(' ✖ geocode failed for', address, status);
+            }
         });
     }
 </script>
