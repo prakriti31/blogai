@@ -28,7 +28,12 @@
         <div class="cards-container"></div>
     </section>
 
-    <section id="mapSection" class="section">
+    <!-- Button to show map -->
+    <section class="section">
+        <button id="showMapBtn" class="show-map-btn">Show on Map</button>
+    </section>
+
+    <section id="mapSection" class="section" style="display: none;">
         <h2>Map</h2>
         <div class="cards-container">
             <div id="map" class="card" style="width:100%; height:600px;"></div>
@@ -36,7 +41,7 @@
     </section>
 </main>
 
-<!-- Google Maps JS: REPLACE YOUR_API_KEY -->
+<!-- Google Maps API (Replace with your actual API key) -->
 <script
         async
         defer
@@ -47,23 +52,23 @@
     let userPosition = null;
     let recommendations = null;
     let map, bounds, geocoder, infoWin;
+    let mapInitialized = false;
 
     document.addEventListener('DOMContentLoaded', () => {
         if (!navigator.geolocation) {
             alert('Geolocation not supported');
             return;
         }
+
         navigator.geolocation.getCurrentPosition(async ({ coords }) => {
             const { latitude, longitude } = coords;
             userPosition = { lat: latitude, lng: longitude };
 
-            /* 1 — current weather */
             const wRes = await fetch(
                 `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
             );
             const weather = (await wRes.json()).current_weather;
 
-            /* 2 — recommendations */
             const rRes = await fetch('/api/recommendations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -76,13 +81,20 @@
                 ? JSON.parse(payload.recommendations.replace(/```json|```/g, '').trim())
                 : payload.recommendations;
 
-            /* 3 — cards */
-            renderCards('restaurants',    recommendations.restaurants,    weather);
+            renderCards('restaurants', recommendations.restaurants, weather);
             renderCards('musicalEvents', recommendations.musicalEvents, weather);
-            renderCards('sportsEvents',   recommendations.sportsEvents,   weather);
+            renderCards('sportsEvents', recommendations.sportsEvents, weather);
+        });
 
-            /* 4 — map (if API ready) */
-            if (window.google && window.google.maps) initMap();
+        // Map toggle logic
+        document.getElementById('showMapBtn').addEventListener('click', () => {
+            const mapSection = document.getElementById('mapSection');
+            mapSection.style.display = 'block';
+            if (!mapInitialized && window.google && window.google.maps) {
+                initMap();
+                mapInitialized = true;
+            }
+            window.scrollTo({ top: mapSection.offsetTop - 60, behavior: 'smooth' });
         });
     });
 
@@ -98,12 +110,12 @@
                 : `<p><strong>Current Weather:</strong> ${weather.temperature}°C</p>`;
 
             const timeLine = item.openingTime
-                ? `<p><strong>Open:</strong> ${item.openingTime} – ${item.closingTime}</p>`
-                : `<p><strong>Start:</strong> ${item.date} @ ${item.startTime}</p>`;
+                ? `<p><strong>Open:</strong> ${item.openingTime} – ${item.closingTime}</p>`
+                : `<p><strong>Start:</strong> ${item.date} @ ${item.startTime}</p>`;
 
             const extras = sectionId === 'restaurants'
                 ? `<p><strong>Cuisine:</strong> ${item.cuisineType}</p>
-             <p><strong>Best Dishes:</strong> ${item.bestDishes || ''}</p>`
+             <p><strong>Best Dishes:</strong> ${item.bestDishes || ''}</p>`
                 : '';
 
             const card = document.createElement('div');
@@ -116,13 +128,12 @@
         });
     }
 
-    /* —  MAP — */
     function initMap() {
         if (!userPosition) return;
 
-        bounds   = new google.maps.LatLngBounds();
+        bounds = new google.maps.LatLngBounds();
         geocoder = new google.maps.Geocoder();
-        infoWin  = new google.maps.InfoWindow();
+        infoWin = new google.maps.InfoWindow();
 
         map = new google.maps.Map(document.getElementById('map'), {
             center: userPosition,
@@ -130,19 +141,17 @@
             mapTypeControl: false
         });
 
-        /* user (green paddle‑circle) */
         makeMarker({
             latLng: userPosition,
             icon: 'https://maps.google.com/mapfiles/kml/paddle/grn-circle.png',
             title: 'Your location',
-            html:  '<strong>You are here</strong>'
+            html: '<strong>You are here</strong>'
         });
 
-        /* category paddles */
         const icons = {
             restaurant: 'https://maps.google.com/mapfiles/kml/paddle/red-circle.png',
-            music:      'https://maps.google.com/mapfiles/kml/paddle/blu-circle.png',
-            sports:     'https://maps.google.com/mapfiles/kml/paddle/ylw-circle.png'
+            music: 'https://maps.google.com/mapfiles/kml/paddle/blu-circle.png',
+            sports: 'https://maps.google.com/mapfiles/kml/paddle/ylw-circle.png'
         };
 
         const all = [
@@ -150,32 +159,28 @@
                 address: r.address + ', Chicago, IL, USA',
                 icon: icons.restaurant,
                 title: r.name,
-                html:
-                    `<strong>${r.name}</strong><br>${r.address}<br>${r.cuisineType}<br>${r.bestDishes || ''}`
+                html: `<strong>${r.name}</strong><br>${r.address}<br>${r.cuisineType}<br>${r.bestDishes || ''}`
             })),
             ...recommendations.musicalEvents.map(e => ({
                 address: e.venue + ', Chicago, IL, USA',
                 icon: icons.music,
                 title: e.eventName,
-                html:
-                    `<strong>${e.eventName}</strong><br>${e.venue}<br>${e.date} @ ${e.startTime}<br>${e.temperature}, ${e.weatherForecast}`
+                html: `<strong>${e.eventName}</strong><br>${e.venue}<br>${e.date} @ ${e.startTime}<br>${e.temperature}, ${e.weatherForecast}`
             })),
             ...recommendations.sportsEvents.map(e => ({
                 address: e.venue + ', Chicago, IL, USA',
                 icon: icons.sports,
                 title: e.eventName,
-                html:
-                    `<strong>${e.eventName}</strong><br>${e.venue}<br>${e.date} @ ${e.startTime}<br>${e.temperature}, ${e.weatherForecast}`
+                html: `<strong>${e.eventName}</strong><br>${e.venue}<br>${e.date} @ ${e.startTime}<br>${e.temperature}, ${e.weatherForecast}`
             }))
         ];
 
-        /* geocode with spacing (500 ms) & slight jitter to prevent overlap */
         all.forEach((obj, idx) => {
             setTimeout(() => geocoder.geocode({ address: obj.address },
                 (res, status) => {
-                    if (status !== 'OK' || !res[0]) return console.warn('Geocode fail', obj.address);
+                    if (status !== 'OK' || !res[0]) return console.warn('Geocode fail', obj.address);
                     const loc = res[0].geometry.location;
-                    const jitter = 0.0003; // ≈30 m
+                    const jitter = 0.0003;
                     const pos = {
                         lat: loc.lat() + (Math.random() - 0.5) * jitter,
                         lng: loc.lng() + (Math.random() - 0.5) * jitter
@@ -185,18 +190,15 @@
         });
     }
 
-    /* helper to drop a marker & wire hover / click */
     function makeMarker({ latLng, icon, title, html }) {
         const m = new google.maps.Marker({ position: latLng, map, icon, title });
         bounds.extend(latLng);
         map.fitBounds(bounds);
 
-        /* hover → info window */
         m.addListener('mouseover', () => {
             infoWin.setContent(html);
             infoWin.open(map, m);
         });
-        /* click → keep window + open Google Maps tab */
         m.addListener('click', () => {
             infoWin.setContent(html);
             infoWin.open(map, m);
