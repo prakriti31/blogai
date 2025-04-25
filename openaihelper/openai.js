@@ -1,90 +1,92 @@
 require("dotenv").config();
 const OpenAI = require("openai");
+const axios  = require("axios");
 
-// Initialize OpenAI API
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY, // Ensure this is set in your .env
-});
+/* --------------------------- OpenAI initialisation --------------------------- */
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/**
- * generateReply:
- * Uses the OpenAI API to generate a reply based on the provided prompt.
- */
-async function generateReply(prompt) {
+/* -------------------- helper ⇒ pull live hours from SerpAPI ------------------ */
+async function fetchOpeningHours(name, location) {
     try {
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo", // or any other model
-            messages: [
-                {
-                    role: "system",
-                    content:
-                        "You are a helpful assistant who generates a thoughtful reply to a blog post.",
-                },
-                { role: "user", content: prompt },
-            ],
-            temperature: 0.7,
+        const { data } = await axios.get("https://serpapi.com/search.json", {
+            params: {
+                engine: "google_local",
+                q:      `${name} ${location}`,
+                api_key: process.env.SERPAPI_API_KEY,
+            },
         });
 
-        return response.choices[0].message.content.trim();
+        /* Preferred places → local_results ▸ hours                      */
+        if (data.local_results?.length) {
+            const place = data.local_results[0];
+
+            // Case A: simple string (“Open ⋅ Closes 10 PM”)
+            if (typeof place.hours === "string") return place.hours;
+
+            // Case B: array of { day, hours } objects
+            if (Array.isArray(place.hours) && place.hours.length) {
+                return place.hours.map(h => `${h.day}: ${h.hours}`).join(" | ");
+            }
+        }
+
+        /* Fallback → knowledge_graph ▸ hours                           */
+        if (data.knowledge_graph?.hours) return data.knowledge_graph.hours;
     } catch (err) {
-        console.error("OpenAI API error:", err);
-        throw err;
+        console.warn("SerpAPI hours fetch failed for", name, "-", err.message);
     }
+    return null;          // graceful degrade
 }
 
-/**
- * generateRecommendations:
- * Given a user location and weather object, asks OpenAI for
- * 3 restaurants, 3 musical events, and 3 sports events nearby.
- * Returns a parsed JSON object if possible, or the raw string.
- *
- * @param {string} location
- * @param {{temperature:number, weathercode:number}} weather
- */
+/* ------------------------------ blog-reply AI ------------------------------- */
+async function generateReply(prompt) {
+    const { choices } = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+            { role: "system", content: "You are a helpful assistant who generates a thoughtful reply to a blog post." },
+            { role: "user",   content: prompt },
+        ],
+        temperature: 0.7,
+    });
+    return choices[0].message.content.trim();
+}
+
+/* -------- main recommender – now enriches restaurants with live hours -------- */
 async function generateRecommendations(location, weather) {
-    try {
-        const userPrompt = `
-You are a helpful assistant that, given a user's location and the current weather conditions, recommends:
-1. Three restaurants (with name, address/location, opening time, closing time, and cuisine type, best dishes on menu of that restaurant).
-2. Three musical events or concerts (with event name, venue, location, date, and start time, temperature on that day, and weather forecast in one line).
-3. Three sports events (with event name, venue, location, date, and start time, temperature on that day, and weather forecast in 1 line).
+    /* -- 1️⃣  ask OpenAI for the basic 3×3×3 lists (keep prompt lean & fast) -- */
+    const userPrompt = `
+You are a helpful assistant. Given the user's location and current weather suggest the following,
+return JSON containing ONLY events dated on 25 April 2025 or AFTER 25 APRIL 2025:
+- "restaurants":    3 places (name, cuisineType, closing and opening time, address, best dishes/best sellers)
+- "musicalEvents":  3 upcoming events (eventName, venue, date (YYYY-MM-DD), startTime, temperature, weatherForecast). The events should only be from today or the next 2 weeks.
+- "sportsEvents":   3 events (eventName, venue, date, startTime, temperature, weatherForecast).  The events should only be from today or the next 2 weeks.
 
 User location: ${location}
-Current weather: ${weather.temperature}°C (code ${weather.weathercode})
-
-Please format your response as valid JSON with three keys:
-  - "restaurants": [ { … }, { … }, { … }, { … } ]
-  - "musicalEvents": [ { … }, { … }, { … }, { … } ]
-  - "sportsEvents": [ { … }, { … }, { … }, { … } ]
+Weather: ${weather.temperature}°C (code ${weather.weathercode})
 `;
 
-        const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-                {
-                    role: "system",
-                    content:
-                        "You are a helpful assistant that analyses the weather and recommends restaurants, concerts, and sports events in JSON format.",
-                },
-                { role: "user", content: userPrompt },
-            ],
-            temperature: 0.7,
-        });
+    const { choices } = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+            { role: "system", content: "Output strictly valid JSON – no markdown fences." },
+            { role: "user",   content: userPrompt },
+        ],
+        temperature: 0.7,
+    });
 
-        const text = response.choices[0].message.content.trim();
-        // Try to parse JSON; if that fails, return raw text
-        try {
-            return JSON.parse(text);
-        } catch {
-            return text;
-        }
-    } catch (err) {
-        console.error("OpenAI Recommendations error:", err);
-        throw err;
+    /* -- 2️⃣  parse the JSON we asked for                                 -- */
+    const rec = JSON.parse(choices[0].message.content.trim());
+
+    /* -- 3️⃣  enrich each restaurant with real-time opening hours         -- */
+    if (Array.isArray(rec.restaurants)) {
+        await Promise.all(
+            rec.restaurants.map(async r => {
+                const hours = await fetchOpeningHours(r.name, location);
+                if (hours) r.hoursText = hours;               // new field used client-side
+            })
+        );
     }
+
+    return rec;
 }
 
-module.exports = {
-    generateReply,
-    generateRecommendations,
-};
+module.exports = { generateReply, generateRecommendations };
