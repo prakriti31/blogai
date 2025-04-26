@@ -57,8 +57,8 @@ async function generateRecommendations(location, weather) {
 You are a helpful assistant. Given the user's location and current weather suggest the following,
 return JSON containing ONLY events dated on 25 April 2025 or AFTER 25 APRIL 2025:
 - "restaurants":    3 places (name, cuisineType, closing and opening time, address, best dishes/best sellers)
-- "musicalEvents":  3 upcoming events (eventName, venue, date (YYYY-MM-DD), startTime, temperature, weatherForecast). The events should only be from today or the next 2 weeks.
-- "sportsEvents":   3 events (eventName, venue, date, startTime, temperature, weatherForecast).  The events should only be from today or the next 2 weeks.
+- "musicalEvents":  3 upcoming events (eventName, venue, date (YYYY-MM-DD), startTime of event, temperature on the event's day, weatherForecast on the event's day in on line). The events should only be from today or the next 2 weeks.
+- "sportsEvents":   3 events (eventName, venue, date, startTime of event, temperature on the event's day, weatherForecast on the event's day in one line).  The events should only be from today or the next 2 weeks.
 
 User location: ${location}
 Weather: ${weather.temperature}°C (code ${weather.weathercode})
